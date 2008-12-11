@@ -551,8 +551,8 @@ sub DB_ATOMIC {
 
 			# actually execute it!
 			try {
-				if ( defined $data->{'PLACEHOLDERS'}->[ $idx ] ) {
-					$sth->execute( $data->{'PLACEHOLDERS'}->[ $idx ] );
+				if ( exists $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'}->[ $idx ] ) {
+					$sth->execute( @{ $data->{'PLACEHOLDERS'}->[ $idx ] } );
 				} else {
 					$sth->execute;
 				}
