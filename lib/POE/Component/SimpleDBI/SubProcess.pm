@@ -542,7 +542,7 @@ sub DB_ATOMIC {
 		$DB->begin_work;
 
 		# process each query
-		for my $idx ( 0 .. scalar @{ $data->{'SQL'} } ) {
+		for my $idx ( 0 .. @#{ $data->{'SQL'} } ) {
 			if ( $data->{'PREPARE_CACHED'} ) {
 				$sth = $DB->prepare_cached( $data->{'SQL'}->[ $idx ] );
 			} else {
@@ -557,7 +557,7 @@ sub DB_ATOMIC {
 					$sth->execute;
 				}
 			} catch Error with {
-				die "$idx: " . $sth->errstr;
+				die $sth->errstr;
 			};
 
 			# Finally, we clean up this statement handle
@@ -580,14 +580,12 @@ sub DB_ATOMIC {
 			# Get the error
 			my $error = shift;
 
-			$output = Make_Error( $data->{'ID'}, $e . '->' . $error );
-			$output->{'DATA'} = 'ROLLBACK_FAILURE';
+			$output = Make_Error( $data->{'ID'}, 'ROLLBACK_FAILURE: ' . $error . ' on query error: ' . $e );
 		};
 
 		# did we rollback fine?
 		if ( ! defined $output ) {
-			$output = Make_Error( $data->{'ID'}, $e );
-			$output->{'DATA'} = 'COMMIT_FAILURE';
+			$output = Make_Error( $data->{'ID'},'COMMIT_FAILURE: ' . $e );
 		}
 	};
 

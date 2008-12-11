@@ -1808,13 +1808,13 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 	The Event handler will get a hash in ARG0:
 	{
-		'ERROR'		=>	exists only if an error occured
+		'ERROR'		=>	exists only if an error occured ( ROLLBACK_FAILURE or COMMIT_FAILURE with explanation )
 		'ACTION'	=>	'ATOMIC'
 		'ID'		=>	ID of the Query
 		'EVENT'		=>	The event the query will respond to
 		'SESSION'	=>	The session the query will respond to
 		'SQL'		=>	Original SQL array inputted
-		'RESULT'	=>	Either: SUCCESS or ROLLBACK_FAILURE or COMMIT_FAILURE ( see above pseudocode )
+		'RESULT'	=>	Either SUCCESS or in case of error, not exists
 		'PLACEHOLDERS'	=>	Original placeholders ( may not exist if it was not provided )
 		'BAGGAGE'	=>	whatever you set it to ( may not exist if it was not provided )
 	}
