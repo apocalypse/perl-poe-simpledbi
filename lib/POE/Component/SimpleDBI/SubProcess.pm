@@ -44,6 +44,7 @@ sub main {
 		# INPUT STRUCTURE IS:
 		# $d->{'ACTION'}	= SCALAR	->	WHAT WE SHOULD DO
 		# $d->{'SQL'}		= SCALAR	->	THE ACTUAL SQL
+			# $d->{'SQL'}		= ARRAY		->	THE ACTUAL SQL ( in case of ATOMIC )
 		# $d->{'PLACEHOLDERS'}	= ARRAY		->	PLACEHOLDERS WE WILL USE
 		# $d->{'PREPARE_CACHED'}= BOOLEAN	->	USE CACHED QUERIES?
 		# $d->{'ID'}		= SCALAR	->	THE QUERY ID ( FOR PARENT TO KEEP TRACK OF WHAT IS WHAT )
@@ -72,6 +73,8 @@ sub main {
 				DB_MULTIPLE( $input );
 			} elsif ( $input->{'ACTION'} eq 'QUOTE' ) {
 				DB_QUOTE( $input );
+			} elsif ( $input->{'ACTION'} eq 'ATOMIC' ) {
+				DB_ATOMIC( $input );
 			} elsif ( $input->{'ACTION'} eq 'EXIT' ) {
 				# Cleanly disconnect from the DB
 				if ( defined $DB ) {
@@ -172,7 +175,7 @@ sub DB_CONNECT {
 		if ( ! exists $output->{'ERROR'} ) {
 			return 1;
 		} else {
-			return undef;
+			return;
 		}
 	}
 }
@@ -509,6 +512,99 @@ sub DB_DO {
 
 		# Make sure the object is gone, thanks Sjors!
 		undef $sth;
+	}
+
+	# Return the data structure
+	output( $output );
+}
+
+# This subroutine runs a 'DO' style query on the db in a transaction
+sub DB_ATOMIC {
+	# Get the input structure
+	my $data = shift;
+
+	# Variables we use
+	my $output = undef;
+	my $sth = undef;
+
+	# Check if we are connected
+	if ( ! defined $DB or ! $DB->ping() ) {
+		# Automatically try to reconnect
+		if ( ! DB_CONNECT( $CONN, 'RECONNECT' ) ) {
+			output( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
+			return;
+		}
+	}
+
+	# Catch any errors :)
+	try {
+		# start the transaction
+		$DB->begin_work;
+
+		# process each query
+		for my $idx ( 0 .. scalar @{ $data->{'SQL'} } ) {
+			if ( $data->{'PREPARE_CACHED'} ) {
+				$sth = $DB->prepare_cached( $data->{'SQL'}->[ $idx ] );
+			} else {
+				$sth = $DB->prepare( $data->{'SQL'}->[ $idx ] );
+			}
+
+			# actually execute it!
+			try {
+				if ( defined $data->{'PLACEHOLDERS'}->[ $idx ] ) {
+					$sth->execute( $data->{'PLACEHOLDERS'}->[ $idx ] );
+				} else {
+					$sth->execute;
+				}
+			} catch Error with {
+				die $sth->errstr;
+			};
+
+			# Finally, we clean up this statement handle
+			$sth->finish();
+
+			# Make sure the object is gone, thanks Sjors!
+			undef $sth;
+		}
+
+		# done with transaction!
+		$DB->commit;
+	} catch Error with {
+		# Get the error
+		my $e = shift;
+
+		# rollback the changes!
+		try {
+			$DB->rollback;
+		} catch Error with {
+			# Get the error
+			my $error = shift;
+
+			$output = Make_Error( $data->{'ID'}, $e );
+			$output->{'DATA'} = 'ROLLBACK_FAILURE';
+		};
+
+		# did we rollback fine?
+		if ( ! defined $output ) {
+			$output = Make_Error( $data->{'ID'}, $e );
+			$output->{'DATA'} = 'COMMIT_FAILURE';
+		}
+	};
+
+	# Finally, we clean up this statement handle
+	if ( defined $sth ) {
+		$sth->finish();
+
+		# Make sure the object is gone, thanks Sjors!
+		undef $sth;
+	}
+
+	# If we got no output, we did it!
+	if ( ! defined $output ) {
+		# Make the data structure
+		$output = {};
+		$output->{'DATA'} = 'SUCCESS';
+		$output->{'ID'} = $data->{'ID'};
 	}
 
 	# Return the data structure

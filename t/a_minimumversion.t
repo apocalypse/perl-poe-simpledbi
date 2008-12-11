@@ -10,6 +10,6 @@ if ( not $ENV{TEST_AUTHOR} ) {
 	if ( $@ ) {
 		plan skip_all => 'Test::MinimumVersion required to test minimum perl version';
 	} else {
-		all_minimum_version_ok('5.008');
+		all_minimum_version_from_metayml_ok();
 	}
 }

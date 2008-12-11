@@ -6,12 +6,13 @@ use Test::More;
 if ( not $ENV{TEST_AUTHOR} ) {
 	plan skip_all => 'Author test. Sent $ENV{TEST_AUTHOR} to a true value to run.';
 } else {
-	eval "use Test::CheckManifest";
+	eval "use Test::Fixme";
 	if ( $@ ) {
-		plan skip_all => 'Test::CheckManifest required for validating the MANIFEST';
+		plan skip_all => 'Test::Fixme required for checking for presence of FIXMEs';
 	} else {
-		ok_manifest( {
-			'filter'	=>	[ qr/\.svn/, qr/\.git/, qr/\.tar\.gz$/ ],
-		} );
+		run_tests(
+			'where'		=> 'lib',
+			'match'		=> qr/FIXME|TODO/,
+		);
 	}
 }

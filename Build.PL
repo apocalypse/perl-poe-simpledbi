@@ -23,6 +23,7 @@ my $build = Module::Build->new(
 		'POE'				=> 0,
 
 		# FIXME POE stuff that Test::Dependencies needs to see
+		'POE::Session'			=> 0,
 		'POE::Filter::Line'		=> 0,
 		'POE::Filter::Reference'	=> 0,
 		'POE::Wheel::Run'		=> 0,

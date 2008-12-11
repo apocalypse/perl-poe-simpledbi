@@ -9,11 +9,12 @@ if ( not $ENV{TEST_AUTHOR} ) {
 	if ( not $ENV{PERL_TEST_POD} ) {
 		plan skip_all => 'POD test. Sent $ENV{PERL_TEST_POD} to a true value to run.';
 	} else {
-		eval "use Test::Pod";
+		eval "use Test::Spelling";
 		if ( $@ ) {
-			plan skip_all => 'Test::Pod required for testing POD';
+			plan skip_all => 'Test::Spelling required to test POD for spelling errors';
 		} else {
-			all_pod_files_ok();
+			#all_pod_files_spelling_ok();
+			plan skip_all => 'need to figure out how to add custom vocabulary to dictionary';
 		}
 	}
 }

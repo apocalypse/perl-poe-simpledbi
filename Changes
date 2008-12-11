@@ -3,6 +3,9 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 * 1.23
 
 	Switched to Build.PL for the build system
+	Fixed the stupid test dependencies, thanks BiNGOs!
+	Added the new EXPERIMENTAL 'ATOMIC' support, please let me know if it's broken on your setup!
+	Added some more author tests
 
 * 1.22
 

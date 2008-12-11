@@ -6,12 +6,10 @@ use Test::More;
 if ( not $ENV{TEST_AUTHOR} ) {
 	plan skip_all => 'Author test. Sent $ENV{TEST_AUTHOR} to a true value to run.';
 } else {
-	eval "use Test::CheckManifest";
+	eval "use Test::Compile";
 	if ( $@ ) {
-		plan skip_all => 'Test::CheckManifest required for validating the MANIFEST';
+		plan skip_all => 'Test::Compile required for validating the perl files';
 	} else {
-		ok_manifest( {
-			'filter'	=>	[ qr/\.svn/, qr/\.git/, qr/\.tar\.gz$/ ],
-		} );
+		all_pm_files_ok();
 	}
 }

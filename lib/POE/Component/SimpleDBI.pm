@@ -17,12 +17,16 @@ use POE::Wheel::Run;		# For the nitty-gritty details of 'fork'
 BEGIN {
 	# Debug fun!
 	if ( ! defined &DEBUG ) {
+		## no critic
 		eval "sub DEBUG () { 0 }";
+		## use critic
 	}
 
 	# Our own definition of the max retries
 	if ( ! defined &MAX_RETRIES ) {
+		## no critic
 		eval "sub MAX_RETRIES () { 5 }";
+		## use critic
 	}
 }
 
@@ -304,6 +308,181 @@ sub DB_HANDLE {
 	} else {
 		# set default
 		$args{'INSERT_ID'} = 1;
+	}
+
+	# check for PREPARE_CACHED
+	if ( exists $args{'PREPARE_CACHED'} ) {
+		if ( $args{'PREPARE_CACHED'} ) {
+			$args{'PREPARE_CACHED'} = 1;
+		} else {
+			$args{'PREPARE_CACHED'} = 0;
+		}
+	} else {
+		# What does our global setting say?
+		$args{'PREPARE_CACHED'} = $_[HEAP]->{'PREPARE_CACHED'};
+	}
+
+	# Check if we have shutdown or not
+	if ( $_[HEAP]->{'SHUTDOWN'} ) {
+		# Extensive debug
+		if ( DEBUG ) {
+			warn 'Denied query due to SHUTDOWN';
+		}
+
+		# Do not accept this query
+		$_[KERNEL]->post( $args{'SESSION'}, $args{'EVENT'}, {
+			'SQL'		=>	$args{'SQL'},
+			( exists $args{'PLACEHOLDERS'} ? ( 'PLACEHOLDERS' => $args{'PLACEHOLDERS'} ) : () ),
+			( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
+			'ERROR'		=>	'POE::Component::SimpleDBI is shutting down now, requests are not accepted!',
+			'ACTION'	=>	$args{'ACTION'},
+			'EVENT'		=>	$args{'EVENT'},
+			'SESSION'	=>	$args{'SESSION'},
+			}
+		);
+		return;
+	}
+
+	# Increment the refcount for the session that is sending us this query
+	$_[KERNEL]->refcount_increment( $args{'SESSION'}, 'SimpleDBI' );
+
+	# Add the ID to the query
+	$args{'ID'} = $_[HEAP]->{'IDCounter'}++;
+
+	# Add this query to the queue
+	push( @{ $_[HEAP]->{'QUEUE'} }, \%args );
+
+	# Check if the subprocess is not active
+	if ( ! $_[HEAP]->{'ACTIVE'} ) {
+		# Send the query!
+		$_[KERNEL]->call( $_[SESSION], 'Check_Queue' );
+	}
+
+	# Return the ID for interested parties :)
+	return $args{'ID'};
+}
+
+# This subroutine handles ATOMIC queries
+sub DB_ATOMIC {
+	# Get the arguments
+	my %args = @_[ARG0 .. $#_ ];
+
+	# Check for unknown args
+	foreach my $key ( keys %args ) {
+		if ( $key !~ /^(?:SQL|PLACEHOLDERS|BAGGAGE|EVENT|SESSION|PREPARE_CACHED)$/ ) {
+			if ( DEBUG ) {
+				warn "Unknown argument to $_[STATE] -> $key";
+			}
+			delete $args{ $key };
+		}
+	}
+
+	# Add some stuff to the args
+	$args{'ACTION'} = $_[STATE];
+	if ( ! exists $args{'SESSION'} ) {
+		$args{'SESSION'} = $_[SENDER]->ID();
+	}
+
+	# Check for Session
+	if ( ! defined $args{'SESSION'} ) {
+		# Nothing much we can do except drop this quietly...
+		if ( DEBUG ) {
+			warn "Did not receive a SESSION argument -> State: $_[STATE] Args: " . join( ' / ', %args ) . " Caller: " . $_[CALLER_FILE] . ' -> ' . $_[CALLER_LINE];
+		}
+		return;
+	} else {
+		if ( ref $args{'SESSION'} ) {
+			if ( UNIVERSAL::isa( $args{'SESSION'}, 'POE::Session') ) {
+				# Convert it!
+				$args{'SESSION'} = $args{'SESSION'}->ID();
+			} else {
+				if ( DEBUG ) {
+					warn "Received malformed SESSION argument -> State: $_[STATE] Args: " . join( ' / ', %args ) . " Caller: " . $_[CALLER_FILE] . ' -> ' . $_[CALLER_LINE];
+				}
+				return;
+			}
+		}
+	}
+
+	# Check for Event
+	if ( ! exists $args{'EVENT'} ) {
+		# Nothing much we can do except drop this quietly...
+		if ( DEBUG ) {
+			warn "Did not receive an EVENT argument -> State: $_[STATE] Args: " . join( ' / ', %args ) . " Caller: " . $_[CALLER_FILE] . ' -> ' . $_[CALLER_LINE];
+		}
+		return;
+	} else {
+		if ( ref $args{'EVENT'} ) {
+			# Same quietness...
+			if ( DEBUG ) {
+				warn "Received a malformed EVENT argument -> State: $_[STATE] Args: " . join( ' / ', %args ) . " Caller: " . $_[CALLER_FILE] . ' -> ' . $_[CALLER_LINE];
+			}
+			return;
+		}
+	}
+
+	# Check for SQL
+	if ( ! exists $args{'SQL'} or ! defined $args{'SQL'} or ! ref $args{'SQL'} or ref( $args{'SQL'} ) ne 'ARRAY' or scalar @{ $args{'SQL'} } == 0 ) {
+		if ( DEBUG ) {
+			warn 'Did not receive/malformed SQL array!';
+		}
+
+		# Okay, send the error to the Event
+		$_[KERNEL]->post( $args{'SESSION'}, $args{'EVENT'}, {
+			( exists $args{'SQL'} ? ( 'SQL' => $args{'SQL'} ) : () ),
+			( exists $args{'PLACEHOLDERS'} ? ( 'PLACEHOLDERS' => $args{'PLACEHOLDERS'} ) : () ),
+			( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
+			'ERROR'		=>	'Received an empty/malformed SQL array!',
+			'ACTION'	=>	$args{'ACTION'},
+			'EVENT'		=>	$args{'EVENT'},
+			'SESSION'	=>	$args{'SESSION'},
+			}
+		);
+		return;
+	}
+
+	# Check for placeholders
+	if ( exists $args{'PLACEHOLDERS'} ) {
+		if ( ! ref $args{'PLACEHOLDERS'} or ref( $args{'PLACEHOLDERS'} ) ne 'ARRAY' ) {
+			if ( DEBUG ) {
+				warn 'PLACEHOLDERS was not a ref to an ARRAY!';
+			}
+
+			# Okay, send the error to the Event
+			$_[KERNEL]->post( $args{'SESSION'}, $args{'EVENT'}, {
+				'SQL'		=>	$args{'SQL'},
+				'PLACEHOLDERS'	=>	$args{'PLACEHOLDERS'},
+				( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
+				'ERROR'		=>	'PLACEHOLDERS is not an array!',
+				'ACTION'	=>	$args{'ACTION'},
+				'EVENT'		=>	$args{'EVENT'},
+				'SESSION'	=>	$args{'SESSION'},
+				}
+			);
+			return;
+		}
+
+		# again, make sure it's an AoA
+		foreach my $ph ( @{ $args{'PLACEHOLDERS'} } ) {
+			if ( defined $ph and ( ! ref $ph or ref( $ph ) ne 'ARRAY' ) ) {
+				if ( DEBUG ) {
+					warn 'PLACEHOLDERS was not a proper AoA!';
+				}
+
+				# Okay, send the error to the Event
+				$_[KERNEL]->post( $args{'SESSION'}, $args{'EVENT'}, {
+					'SQL'		=>	$args{'SQL'},
+					'PLACEHOLDERS'	=>	$args{'PLACEHOLDERS'},
+					( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
+					'ERROR'		=>	'PLACEHOLDERS is not an AoA!',
+					'ACTION'	=>	$args{'ACTION'},
+					'EVENT'		=>	$args{'EVENT'},
+					'SESSION'	=>	$args{'SESSION'},
+					}
+				);
+				return;
+			}
+		}
 	}
 
 	# check for PREPARE_CACHED
@@ -782,7 +961,7 @@ sub Delete_Query {
 		if ( DEBUG ) {
 			warn 'Got a Delete_Query event with no arguments!';
 		}
-		return undef;
+		return;
 	}
 
 	# Check if the id exists + not at the top of the queue :)
@@ -810,7 +989,7 @@ sub Delete_Query {
 	}
 
 	# If we got here, we didn't find anything
-	return undef;
+	return;
 }
 
 # This starts the SimpleDBI
@@ -1038,7 +1217,7 @@ sub Got_STDOUT {
 		$ret->{'ERROR'} = $data->{'ERROR'};
 	} else {
 		$ret->{'RESULT'} = $data->{'DATA'};
-		if ( defined $data->{'INSERTID'} ) {
+		if ( exists $data->{'INSERTID'} and defined $data->{'INSERTID'} ) {
 			$ret->{'INSERTID'} = $data->{'INSERTID'};
 		}
 	}
@@ -1572,7 +1751,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 =head3 C<ATOMIC>
 
 	This query is specialized for those queries that you need to execute in a transaction. You supply an array of SQL queries,
-	and SimpleDBI will execute them all in a transaction block. No need to worry about AutoCommit, BEGIN, END TRANSACTION!
+	and SimpleDBI will execute them all in a transaction block. No need to worry about AutoCommit, BEGIN, and END TRANSACTION!
 
 	You are supposed to pass an array of queries that normally would be executed in a DO-style query. Again, you cannot execute
 	SELECT queries in this type of command! Currently there is no control over prepare_cached for individual queries. It may be
@@ -1590,7 +1769,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 	eval {
 		$dbh->begin_work;
-		for my $idx ( 1 .. @#array ) {
+		for my $idx ( 0 .. @#array ) {
 			if ( $global_prepare_cached ) {
 				$sth = $dbh->prepare_cached( $array[ $idx ] );
 			} else {
@@ -1634,7 +1813,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		'ID'		=>	ID of the Query
 		'EVENT'		=>	The event the query will respond to
 		'SESSION'	=>	The session the query will respond to
-		'SQL'		=>	Original SQL inputted
+		'SQL'		=>	Original SQL array inputted
 		'RESULT'	=>	Either: SUCCESS or ROLLBACK_FAILURE or COMMIT_FAILURE ( see above pseudocode )
 		'PLACEHOLDERS'	=>	Original placeholders ( may not exist if it was not provided )
 		'BAGGAGE'	=>	whatever you set it to ( may not exist if it was not provided )
