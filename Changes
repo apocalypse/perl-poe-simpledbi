@@ -1,0 +1,164 @@
+Revision history for Perl extension POE::Component::SimpleDBI.
+
+* 1.22
+
+	Kwalitee-related fixes
+
+* 1.21
+
+	silence warnings when used with DBD::SQLite - thanks to Sjors Gielen for tracking this down!
+
+* 1.20
+
+	Added the INSERT_ID to control $dbh->last_insert_id usage
+
+* 1.19
+
+	Added the PREPARE_CACHED argument to control caching
+
+* 1.18
+
+	Ignore the DBI error for last_insert_id and default to undef
+
+* 1.17
+
+	Added "INSERTID" to the result of DO
+
+* 1.16
+
+	Noticed a glaring documentation bug
+		- SINGLE queries return mixedCaps rows ( not lowercase! )
+		- MULTIPLE queries return lowercase rows
+
+	This makes me *VERY* tempted to fix SINGLE to return lowercase, is this a good idea? Let me know!
+
+	Fixed SimpleDBI failure on Win32 - thanks RT #23851
+
+* 1.15
+
+	Thanks to Fred Castellano, who stumbled on a DEADLOCK bug, fixed!
+	Added sanity tests to CONNECT/DISCONNECT
+
+* 1.14
+
+	learned about the difference between ref $self and ref( $self )
+	Kwalitee-related fixes
+
+* 1.13
+
+	Finally use a Changes file - thanks RT #18981
+	Fixed a bug in SINGLE if returned_rows = 0 it will not return undef, but give us blank rows!
+	Documentation tweaks
+
+* 1.12
+
+	In the SubProcess, added a binmode() to STDIN and STDERR, for the windows attempt
+	Added code to make SimpleDBI work in Win32 boxes, thanks to the recent Wheel::Run patches!
+	Documentation tweaks as usual
+
+* 1.11
+
+	Hannes had a problem:
+		His IRC bot logs events to a database, and sometimes there is no events to log after
+		hours and hours of inactivity ( must be a boring channel haha ), the db server disconnected!
+
+	The solution was to do a $dbh->ping() before each query, if your DBI driver does it inefficiently, go yell at them!
+	In the event that a reconnect is not possible, an error will be sent to the CONNECT event handler, look at the updated pod.
+
+* 1.10
+
+	Fixed a bug in the DO routine, thanks to Hannes!
+
+* 1.09
+
+	Removed the abstract LIMIT 1 to the SINGLE query
+
+	Removed the silly 5.8.x requirement in Makefile.PL
+
+	Made the SubProcess use less memory by exec()ing itself
+
+	Added the new CONNECT/DISCONNECT commands
+
+	Removed the db connection information from new()
+
+	Minor tweaks here and there to not stupidly call() the queue checker when there is nothing to check :)
+
+	Added the sysreaderr debugging output
+
+	More intelligent SQL/PLACEHOLDERS/BAGGAGE handling
+
+	Made the command arguments more stricter, it will only accept valid arguments, instead of just extracting what it needs
+
+	Made sure all return data have ID/EVENT/SESSION/ACTION in them for easy debugging
+
+	Added the SESSION parameter to all commands for easy redirection
+
+	Updated the POD and generally made it better :)
+
+	Added a new command -> Clear_Queue ( clears the queue )
+
+* 1.08
+
+	In the SubProcess, removed the select statement requirement
+
+* 1.07
+
+	In the SubProcess, fixed a silly mistake in DO's execution of placeholders
+
+	Cleaned up a few error messages in the SubProcess
+
+	Peppered the code with *more* DEBUG statements :)
+
+	Replaced a croak() with a die() when it couldn't connect to the database
+
+	Documented the _child events
+
+* 1.06
+
+	Fixed some typos in the POD
+
+	Added the BAGGAGE option
+
+* 1.05
+
+	Fixed some typos in the POD
+
+	Fixed the DEBUG + MAX_RETRIES "Subroutine redefined" foolishness
+
+* 1.04
+
+	Got rid of the EVENT_S and EVENT_E handlers, replaced with a single EVENT handler
+
+	Internal changes to get rid of some stuff -> Send_Query / Send_Wheel
+
+	Added the Delete_Query event -> Deletes an query via ID
+
+	Changed the DO/MULTIPLE/SINGLE/QUOTE events to return an ID ( Only usable if call'ed )
+
+	Made sure that the ACTION key is sent back to the EVENT handler every time
+
+	Added some DEBUG stuff :)
+
+	Added the CHANGES section
+
+	Fixed some typos in the POD
+
+* 1.03
+
+	Increments refcount for querying sessions so they don't go away
+
+	POD formatting
+
+	Consolidated shutdown and shutdown_NOW into one single event
+
+	General formatting in program
+
+	DB connection error handling
+
+	Renamed the result hash: RESULTS to RESULT for better readability
+
+	SubProcess -> added DBI connect failure handling
+
+* 1.02
+
+	Initial release

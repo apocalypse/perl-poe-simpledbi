@@ -1,0 +1,23 @@
+POE/Component/SimpleDBI
+=======================
+
+This module simplifies DBI usage in POE's multitasking world.
+
+This module is a breeze to use, you'll have DBI calls in your POE program
+up and running in only a few seconds of setup.
+
+This module does what XML::Simple does for the XML world.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+MORE INFO
+
+	# After installing:
+	perldoc POE::Component::SimpleDBI
