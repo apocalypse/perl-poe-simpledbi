@@ -1,5 +1,9 @@
 Revision history for Perl extension POE::Component::SimpleDBI.
 
+* 1.23
+
+	Switched to Build.PL for the build system
+
 * 1.22
 
 	Kwalitee-related fixes

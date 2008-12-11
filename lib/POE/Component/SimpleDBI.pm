@@ -2,9 +2,9 @@
 package POE::Component::SimpleDBI;
 use strict; use warnings;
 
-# Initialize our version $LastChangedRevision: 18 $
+# Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.22';
+$VERSION = '1.23';
 
 # Import what we need from the POE namespace
 use POE;			# For the constants
@@ -86,6 +86,7 @@ sub new {
 			'QUOTE'		=>	\&DB_HANDLE,
 			'CONNECT'	=>	\&DB_CONNECT,
 			'DISCONNECT'	=>	\&DB_DISCONNECT,
+			'ATOMIC'	=>	\&DB_ATOMIC,
 
 			# Queue stuff
 			'Check_Queue'	=>	\&Check_Queue,
@@ -1564,6 +1565,77 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		'SESSION'	=>	The session the query will respond to
 		'SQL'		=>	Original SQL inputted
 		'RESULT'	=>	Array of hash of columns - similar to array of fetchrow_hashref's ( undef if no rows returned )
+		'PLACEHOLDERS'	=>	Original placeholders ( may not exist if it was not provided )
+		'BAGGAGE'	=>	whatever you set it to ( may not exist if it was not provided )
+	}
+
+=head3 C<ATOMIC>
+
+	This query is specialized for those queries that you need to execute in a transaction. You supply an array of SQL queries,
+	and SimpleDBI will execute them all in a transaction block. No need to worry about AutoCommit, BEGIN, END TRANSACTION!
+
+	You are supposed to pass an array of queries that normally would be executed in a DO-style query. Again, you cannot execute
+	SELECT queries in this type of command! Currently there is no control over prepare_cached for individual queries. It may be
+	added in a future release.
+
+	Accepted arguments:
+		SESSION		->	The session to send the results
+		EVENT		->	The event to send the results
+		SQL		->	The array of SQL queries
+		PLACEHOLDERS	->	The array of placeholders ( if needed ) [ this is an AoA - array of arrays! ]
+		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+		PREPARE_CACHED	->	Boolean value ( if needed ) [ for all of the queries! ]
+
+	Internally, it does this:
+
+	eval {
+		$dbh->begin_work;
+		for my $idx ( 1 .. @#array ) {
+			if ( $global_prepare_cached ) {
+				$sth = $dbh->prepare_cached( $array[ $idx ] );
+			} else {
+				$sth = $dbh->prepare( $array[ $idx ] );
+			}
+			if ( defined $PLACEHOLDERS[ $idx ] ) {
+				$sth->execute( $PLACEHOLDERS[ $idx ] );
+			} else {
+				$sth->execute;
+			}
+		}
+		$dbh->commit;
+	};
+	if ( $@ ) {
+		eval { $dbh->rollback };
+		if ( $@ ) {
+			return ROLLBACK_FAILURE;
+		} else {
+			return COMMIT_FAILURE:
+		}
+	} else {
+		return SUCCESS;
+	}
+
+	Here's an example on how to trigger this event:
+	$_[KERNEL]->post( 'SimpleDBI', 'ATOMIC',
+		SQL => [
+			'DELETE FROM FooTable WHERE ID = ?',
+			'UPDATE FooTable SET baz = ? WHERE bar = ?',
+		],
+		EVENT => 'atomic_handler',
+		PLACEHOLDERS => [	[ 53 ],
+					[ 5, 86 ]
+		],
+	);
+
+	The Event handler will get a hash in ARG0:
+	{
+		'ERROR'		=>	exists only if an error occured
+		'ACTION'	=>	'ATOMIC'
+		'ID'		=>	ID of the Query
+		'EVENT'		=>	The event the query will respond to
+		'SESSION'	=>	The session the query will respond to
+		'SQL'		=>	Original SQL inputted
+		'RESULT'	=>	Either: SUCCESS or ROLLBACK_FAILURE or COMMIT_FAILURE ( see above pseudocode )
 		'PLACEHOLDERS'	=>	Original placeholders ( may not exist if it was not provided )
 		'BAGGAGE'	=>	whatever you set it to ( may not exist if it was not provided )
 	}
