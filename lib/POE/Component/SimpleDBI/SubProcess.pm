@@ -137,12 +137,16 @@ sub DB_CONNECT {
 				{
 					# We do not want users seeing 'spam' on the commandline...
 					'PrintError'	=>	0,
+					'PrintWarn'	=>	0,
 
 					# Automatically raise errors so we can catch them with try/catch
 					'RaiseError'	=>	1,
 
 					# Disable the DBI tracing
 					'TraceLevel'	=>	0,
+
+					# AutoCommit our stuff?
+					'AutoCommit'	=>	$data->{'AUTO_COMMIT'},
 				}
 			);
 
@@ -292,7 +296,7 @@ sub DB_MULTIPLE {
 			# Execute the query
 			try {
 				# Put placeholders?
-				if ( exists $data->{'PLACEHOLDERS'} ) {
+				if ( exists $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'} ) {
 					$sth->execute( @{ $data->{'PLACEHOLDERS'} } );
 				} else {
 					$sth->execute();
@@ -389,7 +393,7 @@ sub DB_SINGLE {
 			# Execute the query
 			try {
 				# Put placeholders?
-				if ( exists $data->{'PLACEHOLDERS'} ) {
+				if ( exists $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'} ) {
 					$sth->execute( @{ $data->{'PLACEHOLDERS'} } );
 				} else {
 					$sth->execute();
@@ -468,7 +472,7 @@ sub DB_DO {
 			# Execute the query
 			try {
 				# Put placeholders?
-				if ( exists $data->{'PLACEHOLDERS'} ) {
+				if ( exists $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'} ) {
 					$rows_affected = $sth->execute( @{ $data->{'PLACEHOLDERS'} } );
 				} else {
 					$rows_affected = $sth->execute();
@@ -539,32 +543,37 @@ sub DB_ATOMIC {
 	# Catch any errors :)
 	try {
 		# start the transaction
-		$DB->begin_work;
+		$DB->begin_work if $DB->{'AutoCommit'};
 
 		# process each query
-		for my $idx ( 0 .. @#{ $data->{'SQL'} } ) {
+		for my $idx ( 0 .. $#{ $data->{'SQL'} } ) {
 			if ( $data->{'PREPARE_CACHED'} ) {
 				$sth = $DB->prepare_cached( $data->{'SQL'}->[ $idx ] );
 			} else {
 				$sth = $DB->prepare( $data->{'SQL'}->[ $idx ] );
 			}
 
-			# actually execute it!
-			try {
-				if ( exists $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'}->[ $idx ] ) {
-					$sth->execute( @{ $data->{'PLACEHOLDERS'}->[ $idx ] } );
-				} else {
-					$sth->execute;
-				}
-			} catch Error with {
-				die $sth->errstr;
-			};
+			# Check for undef'ness
+			if ( ! defined $sth ) {
+				die "Did not get sth: $DBI::errstr";
+			} else {
+				# actually execute it!
+				try {
+					if ( exists $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'} and defined $data->{'PLACEHOLDERS'}->[ $idx ] ) {
+						$sth->execute( @{ $data->{'PLACEHOLDERS'}->[ $idx ] } );
+					} else {
+						$sth->execute;
+					}
+				} catch Error with {
+					die $sth->errstr;
+				};
 
-			# Finally, we clean up this statement handle
-			$sth->finish();
+				# Finally, we clean up this statement handle
+				$sth->finish();
 
-			# Make sure the object is gone, thanks Sjors!
-			undef $sth;
+				# Make sure the object is gone, thanks Sjors!
+				undef $sth;
+			}
 		}
 
 		# done with transaction!
@@ -585,7 +594,7 @@ sub DB_ATOMIC {
 
 		# did we rollback fine?
 		if ( ! defined $output ) {
-			$output = Make_Error( $data->{'ID'},'COMMIT_FAILURE: ' . $e );
+			$output = Make_Error( $data->{'ID'}, 'COMMIT_FAILURE: ' . $e );
 		}
 	};
 
@@ -623,6 +632,20 @@ sub Make_Error {
 	} else {
 		$data->{'ERROR'} = $error;
 	}
+
+	# All done!
+	return $data;
+}
+
+# This subroutine makes a generic DEBUG structure
+sub Make_DEBUG {
+	# Make the structure
+	my $data = {};
+	$data->{'ID'} = 'DEBUG';
+
+	# Get the data, and shove it in the hash
+	my @debug = @_;
+	$data->{'RESULT'} = \@debug;
 
 	# All done!
 	return $data;

@@ -6,6 +6,7 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 	Fixed the stupid test dependencies, thanks BiNGOs!
 	Added the new EXPERIMENTAL 'ATOMIC' support, please let me know if it's broken on your setup!
 	Added some more author tests
+	Added AUTO_COMMIT argument to CONNECT to control the DBI variable ( defaults to true )
 
 * 1.22
 

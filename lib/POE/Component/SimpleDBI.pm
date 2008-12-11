@@ -30,9 +30,6 @@ BEGIN {
 	}
 }
 
-# Autoflush to avoid weirdness
-$|++;
-
 # Set things in motion!
 sub new {
 	# Get our arguments
@@ -555,7 +552,7 @@ sub DB_CONNECT {
 
 	# Check for unknown args
 	foreach my $key ( keys %args ) {
-		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR)$/ ) {
+		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT)$/ ) {
 			if ( DEBUG ) {
 				warn "Unknown argument to CONNECT -> $key";
 			}
@@ -638,6 +635,17 @@ sub DB_CONNECT {
 		}
 	}
 
+	# set default AutoCommit = 1
+	if ( ! exists $args{'AUTO_COMMIT'} ) {
+		$args{'AUTO_COMMIT'} = 1;
+	} else {
+		if ( $args{'AUTO_COMMIT'} ) {
+			$args{'AUTO_COMMIT'} = 1;
+		} else {
+			$args{'AUTO_COMMIT'} = 0;
+		}
+	}
+
 	# Some sanity
 	if ( exists $args{'NOW'} and $args{'NOW'} and $_[HEAP]->{'CONNECTED'} ) {
 		# Okay, send the error to the Event
@@ -687,7 +695,7 @@ sub DB_CONNECT {
 	}
 
 	# Save the connection info
-	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT ) ) {
+	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT ) ) {
 		$_[HEAP]->{ 'DB_' . $key } = $args{ $key };
 	}
 
@@ -850,6 +858,7 @@ sub Clear_Queue {
 			$ret->{'DSN'} = $queue->{'DSN'};
 			$ret->{'USERNAME'} = $queue->{'USERNAME'};
 			$ret->{'PASSWORD'} = $queue->{'PASSWORD'};
+			$ret->{'AUTO_COMMIT'} = $queue->{'AUTO_COMMIT'};
 		} elsif ( $queue->{'ACTION'} ne 'DISCONNECT' ) {
 			$ret->{'SQL'} = $queue->{'SQL'};
 
@@ -919,6 +928,7 @@ sub Check_Queue {
 				$queue{'DSN'} = $_[HEAP]->{'QUEUE'}->[0]->{'DSN'};
 				$queue{'USERNAME'} = $_[HEAP]->{'QUEUE'}->[0]->{'USERNAME'};
 				$queue{'PASSWORD'} = $_[HEAP]->{'QUEUE'}->[0]->{'PASSWORD'};
+				$queue{'AUTO_COMMIT'} = $_[HEAP]->{'QUEUE'}->[0]->{'AUTO_COMMIT'};
 			} elsif ( $queue{'ACTION'} ne 'DISCONNECT' ) {
 				$queue{'SQL'} = $_[HEAP]->{'QUEUE'}->[0]->{'SQL'};
 
@@ -1157,6 +1167,15 @@ sub Got_STDOUT {
 		return;
 	}
 
+	# allow debugging
+	if ( $data->{'ID'} eq 'DEBUG' ) {
+		if ( DEBUG ) {
+			require Data::Dumper;
+			warn Data::Dumper::Dumper( $data->{'RESULT'} );
+		}
+		return;
+	}
+
 	# Special server discon error is here
 	if ( $data->{'ID'} eq 'GONE' ) {
 		if ( DEBUG ) {
@@ -1174,6 +1193,7 @@ sub Got_STDOUT {
 			'DSN'		=>	$_[HEAP]->{'DB_DSN'},
 			'USERNAME'	=>	$_[HEAP]->{'DB_USERNAME'},
 			'PASSWORD'	=>	$_[HEAP]->{'DB_PASSWORD'},
+			'AUTO_COMMIT'	=>	$_[HEAP]->{'DB_AUTO_COMMIT'},
 		};
 
 		# Okay, we have to inform the session it failed and couldn't reconnect
@@ -1227,6 +1247,7 @@ sub Got_STDOUT {
 		$ret->{'DSN'} = $query->{'DSN'};
 		$ret->{'USERNAME'} = $query->{'USERNAME'};
 		$ret->{'PASSWORD'} = $query->{'PASSWORD'};
+		$ret->{'AUTO_COMMIT'} = $query->{'AUTO_COMMIT'};
 	} elsif ( $query->{'ACTION'} ne 'DISCONNECT' ) {
 		$ret->{'SQL'} = $query->{'SQL'};
 
@@ -1492,6 +1513,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		EVENT		->	The event to send the results
 		NOW		->	Tells SimpleDBI to bypass the queue and connect NOW!
 		CLEAR		->	Tells SimpleDBI to clear the queue and connect NOW!
+		AUTO_COMMIT	->	The boolean value we will pass to DBI->connect ( defaults to true )
 
 	NOTE: if the DSN/USERNAME/PASSWORD/SESSION/EVENT does not exist, SimpleDBI assumes you wanted to use
 	the old connection and will use the cached values ( if you told it to DISCONNECT ).
@@ -1757,6 +1779,10 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 	SELECT queries in this type of command! Currently there is no control over prepare_cached for individual queries. It may be
 	added in a future release.
 
+	WARNING: It tripped me up on my testing when I realized this worked on Postgres but not MySQL. I forgot that I was testing
+	against MyISAM tables, which doesn't support transactions! ( it works nicely on InnoDB tables hah ) So, if this doesn't
+	"behave" properly for you please check your database tables!
+
 	Accepted arguments:
 		SESSION		->	The session to send the results
 		EVENT		->	The event to send the results
@@ -1769,8 +1795,8 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 	eval {
 		$dbh->begin_work;
-		for my $idx ( 0 .. @#array ) {
-			if ( $global_prepare_cached ) {
+		for my $idx ( 0 .. $#array ) {
+			if ( $prepare_cached ) {
 				$sth = $dbh->prepare_cached( $array[ $idx ] );
 			} else {
 				$sth = $dbh->prepare( $array[ $idx ] );
@@ -1780,6 +1806,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 			} else {
 				$sth->execute;
 			}
+			$sth->finish;
 		}
 		$dbh->commit;
 	};
