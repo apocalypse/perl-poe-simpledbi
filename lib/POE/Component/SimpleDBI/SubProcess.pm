@@ -557,7 +557,7 @@ sub DB_ATOMIC {
 					$sth->execute;
 				}
 			} catch Error with {
-				die $sth->errstr;
+				die "$idx: " . $sth->errstr;
 			};
 
 			# Finally, we clean up this statement handle
@@ -580,7 +580,7 @@ sub DB_ATOMIC {
 			# Get the error
 			my $error = shift;
 
-			$output = Make_Error( $data->{'ID'}, $e );
+			$output = Make_Error( $data->{'ID'}, $e . '->' . $error );
 			$output->{'DATA'} = 'ROLLBACK_FAILURE';
 		};
 
