@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.23';
+$VERSION = '1.24';
 
 # Import what we need from the POE namespace
 use POE;			# For the constants

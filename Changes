@@ -1,5 +1,9 @@
 Revision history for Perl extension POE::Component::SimpleDBI.
 
+* 1.24
+
+	Bumped Test::More prereq to 0.86 because I was getting FAIL reports from outdated people :(
+
 * 1.23
 
 	Switched to Build.PL for the build system

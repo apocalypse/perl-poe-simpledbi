@@ -33,11 +33,13 @@ my $build = Module::Build->new(
 
 		# error handling
 		'Error'				=> '0.15',
+
+		# Test stuff
+		'Test::More'			=> '0.86',	# require latest for note() support in t/a_is_prereq_outdated.t
 	},
 
 	'recommends'		=> {
-		# Test stuff
-		'Test::More'			=> 0,
+		# mmm none? :)
 	},
 
 	# FIXME wishlist...
