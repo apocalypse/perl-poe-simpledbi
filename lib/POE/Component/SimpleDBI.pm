@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.24';
+$VERSION = '1.25';
 
 # Import what we need from the POE namespace
 use POE;			# For the constants
@@ -16,18 +16,10 @@ use POE::Wheel::Run;		# For the nitty-gritty details of 'fork'
 # Set some constants
 BEGIN {
 	# Debug fun!
-	if ( ! defined &DEBUG ) {
-		## no critic
-		eval "sub DEBUG () { 0 }";
-		## use critic
-	}
+	if ( ! defined &DEBUG ) { *DEBUG = sub () { 0 } }
 
 	# Our own definition of the max retries
-	if ( ! defined &MAX_RETRIES ) {
-		## no critic
-		eval "sub MAX_RETRIES () { 5 }";
-		## use critic
-	}
+	if ( ! defined &MAX_RETRIES ) { *MAX_RETRIES = sub () { 5 } }
 }
 
 # Set things in motion!
@@ -1925,13 +1917,47 @@ L<POE::Component::LaDBI>
 
 L<POE::Component::EasyDBI>
 
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc POE::Component::SimpleDBI
+
+=head2 Websites
+
+=over 4
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/POE-Component-SimpleDBI>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/POE-Component-SimpleDBI>
+
+=item * RT: CPAN's request tracker
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=POE-Component-SimpleDBI>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/POE-Component-SimpleDBI>
+
+=back
+
+=head2 Bugs
+
+Please report any bugs or feature requests to C<bug-poe-component-simpledbi at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=POE-Component-SimpleDBI>.  I will be
+notified, and then you'll automatically be notified of progress on your bug as I make changes.
+
 =head1 AUTHOR
 
 Apocalypse E<lt>apocal@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2008 by Apocalypse
+Copyright 2009 by Apocalypse
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

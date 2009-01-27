@@ -6,10 +6,10 @@ use Test::More;
 if ( not $ENV{TEST_AUTHOR} ) {
 	plan skip_all => 'Author test. Sent $ENV{TEST_AUTHOR} to a true value to run.';
 } else {
-	eval "use Test::Strict";
+	eval "use Test::YAML::Meta";
 	if ( $@ ) {
-		plan skip_all => 'Test::Strict required to test strictness';
+		plan skip_all => 'Test::YAML::Meta required for validating the meta.yml file';
 	} else {
-		all_perl_files_ok( 'lib/' );
+		meta_yaml_ok();
 	}
 }

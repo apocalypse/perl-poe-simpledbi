@@ -7,6 +7,7 @@ lib/POE/Component/SimpleDBI.pm
 lib/POE/Component/SimpleDBI/SubProcess.pm
 META.yml                                 Module meta-data (added by MakeMaker)
 Changes
+
 examples/db.pl
 
 t/1_load.t
@@ -29,3 +30,4 @@ t/a_prereq_build.t
 t/a_dosnewline.t
 t/a_perlmetrics.t
 t/a_is_prereq_outdated.t
+t/a_metayml.t
