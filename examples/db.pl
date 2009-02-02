@@ -1,3 +1,6 @@
+#!/usr/bin/perl
+use strict; use warnings;
+
 use POE;
 use POE::Component::SimpleDBI;
 
