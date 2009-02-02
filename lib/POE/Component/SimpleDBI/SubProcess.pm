@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '13';
+$VERSION = '1.26';
 
 # Use Error.pm's try/catch semantics
 use Error qw( :try );
@@ -101,6 +101,8 @@ sub main {
 	} else {
 		goto &main;
 	}
+
+	return;
 }
 
 # Connects to the DB
@@ -178,10 +180,10 @@ sub DB_CONNECT {
 		# Reconnect attempt, was it successful?
 		if ( ! exists $output->{'ERROR'} ) {
 			return 1;
-		} else {
-			return;
 		}
 	}
+
+	return;
 }
 
 # Disconnects from the DB
@@ -219,6 +221,7 @@ sub DB_DISCONNECT {
 
 	# All done!
 	output( $output );
+	return;
 }
 
 # This subroutine does a DB QUOTE
@@ -259,6 +262,7 @@ sub DB_QUOTE {
 
 	# All done!
 	output( $output );
+	return;
 }
 
 # This subroutine runs a 'SELECT' style query on the db
@@ -356,6 +360,7 @@ sub DB_MULTIPLE {
 
 	# Return the data structure
 	output( $output );
+	return;
 }
 
 # This subroutine runs a 'SELECT ... LIMIT 1' style query on the db
@@ -434,6 +439,7 @@ sub DB_SINGLE {
 
 	# Return the data structure
 	output( $output );
+	return;
 }
 
 # This subroutine runs a 'DO' style query on the db
@@ -520,6 +526,7 @@ sub DB_DO {
 
 	# Return the data structure
 	output( $output );
+	return;
 }
 
 # This subroutine runs a 'DO' style query on the db in a transaction
@@ -616,6 +623,7 @@ sub DB_ATOMIC {
 
 	# Return the data structure
 	output( $output );
+	return;
 }
 
 # This subroutine makes a generic error structure
@@ -661,6 +669,7 @@ sub output {
 
 	# Print it!
 	print STDOUT @$output;
+	return;
 }
 
 # End of module

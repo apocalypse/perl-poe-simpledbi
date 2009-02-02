@@ -5,29 +5,11 @@ MANIFEST.SKIP
 README
 lib/POE/Component/SimpleDBI.pm
 lib/POE/Component/SimpleDBI/SubProcess.pm
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml
 Changes
+LICENSE
 
 examples/db.pl
 
 t/1_load.t
-
-t/a_critic.t
-t/a_kwalitee.t
-t/a_pod.t
-t/a_pod_spelling.t
-t/a_pod_coverage.t
-t/a_strict.t
-t/a_hasversion.t
-t/a_minimumversion.t
-t/a_manifest.t
-t/a_distribution.t
-t/a_compile.t
-t/a_dependencies.t
-t/a_fixme.t
-t/a_prereq.t
-t/a_prereq_build.t
-t/a_dosnewline.t
-t/a_perlmetrics.t
-t/a_is_prereq_outdated.t
-t/a_metayml.t
+t/apocalypse.t

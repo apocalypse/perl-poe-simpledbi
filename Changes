@@ -1,5 +1,11 @@
 Revision history for Perl extension POE::Component::SimpleDBI.
 
+* 1.26
+
+	Kwalitee-related fixes ( moved to Test::Apocalypse )
+	Fixed RT#42890 ( tweaked Wheel::Run arguments on Win32, please yell at me if it doesn't work for you! )
+	Added sigCHLD management
+
 * 1.25
 
 	Kwalitee-related fixes

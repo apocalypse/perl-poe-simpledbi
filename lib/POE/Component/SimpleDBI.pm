@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.25';
+$VERSION = '1.26';
 
 # Import what we need from the POE namespace
 use POE;			# For the constants
@@ -71,6 +71,7 @@ sub new {
 			'ChildClosed'	=>	\&ChildClosed,
 			'Got_STDOUT'	=>	\&Got_STDOUT,
 			'Got_STDERR'	=>	\&Got_STDERR,
+			'Got_CHLD'	=>	\&Got_CHLD,
 
 			# DB events
 			'DO'		=>	\&DB_HANDLE,
@@ -182,6 +183,8 @@ sub Shutdown {
 			$_[KERNEL]->call( $_[SESSION], 'Check_Queue' );
 		}
 	}
+
+	return;
 }
 
 # This subroutine handles MULTIPLE + SINGLE + DO + QUOTE queries
@@ -950,6 +953,8 @@ sub Check_Queue {
 			warn 'Check_Queue was called but the SubProcess is active!';
 		}
 	}
+
+	return;
 }
 
 # This subroutine deletes a query from the queue
@@ -1003,6 +1008,8 @@ sub Start {
 
 	# Set up the alias for ourself
 	$_[KERNEL]->alias_set( $_[HEAP]->{'ALIAS'} );
+
+	return;
 }
 
 # This sets up the WHEEL
@@ -1034,7 +1041,8 @@ sub Setup_Wheel {
 		# Set up the SubProcess we communicate with
 		$_[HEAP]->{'WHEEL'} = POE::Wheel::Run->new(
 			# What we will run in the separate process
-			'Program'	=>	\&POE::Component::SimpleDBI::SubProcess::main(),
+			# Thanks RT #42890
+			'Program'	=>	sub { POE::Component::SimpleDBI::SubProcess::main() },
 
 			# Kill off existing FD's
 			'CloseOnCall'	=>	0,
@@ -1088,6 +1096,13 @@ sub Setup_Wheel {
 	if ( ! defined $_[HEAP]->{'WHEEL'} ) {
 		die 'Unable to create a new wheel!';
 	} else {
+		# smart CHLD handling
+		if ( $_[KERNEL]->can( "sig_child" ) ) {
+			$_[KERNEL]->sig_child( $_[HEAP]->{'WHEEL'}->PID => 'Got_CHLD' );
+		} else {
+			$_[KERNEL]->sig( 'CHLD', 'Got_CHLD' );
+		}
+
 		# Increment our retry count
 		$_[HEAP]->{'Retries'}++;
 
@@ -1100,11 +1115,20 @@ sub Setup_Wheel {
 			$_[KERNEL]->call( $_[SESSION], 'CONNECT', 'NOW' => 1 );
 		}
 	}
+
+	return;
+}
+
+# Got a CHLD event!
+sub Got_CHLD {
+	$_[KERNEL]->sig_handled();
+	return;
 }
 
 # Stops everything we have
 sub Stop {
 	# Hmpf, what should I put in here?
+	return;
 }
 
 # Handles child DIE'ing
@@ -1128,6 +1152,8 @@ sub ChildClosed {
 		# We are disconnected!
 		$_[HEAP]->{'CONNECTED'} = 0;
 	}
+
+	return;
 }
 
 # Handles child error
@@ -1138,6 +1164,8 @@ sub ChildError {
 		my ( $operation, $errnum, $errstr ) = @_[ ARG0 .. ARG2 ];
 		warn "POE::Component::SimpleDBI got an $operation error $errnum: $errstr\n";
 	}
+
+	return;
 }
 
 # Handles child STDOUT output
@@ -1263,6 +1291,8 @@ sub Got_STDOUT {
 	if ( scalar( @{ $_[HEAP]->{'QUEUE'} } ) > 0 ) {
 		$_[KERNEL]->call( $_[SESSION], 'Check_Queue' );
 	}
+
+	return;
 }
 
 # Handles child STDERR output
@@ -1273,6 +1303,8 @@ sub Got_STDERR {
 	if ( $input eq '' ) { return }
 
 	warn "POE::Component::SimpleDBI Got STDERR from child, which should never happen ( $input )";
+
+	return;
 }
 
 1;

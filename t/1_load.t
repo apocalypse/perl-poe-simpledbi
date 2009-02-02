@@ -1,10 +1,18 @@
 #!/usr/bin/perl
+use strict; use warnings;
 
-# Import the stuff
-# XXX no idea why this is broken for this particular dist!
-#use Test::UseAllModules;
-#BEGIN { all_uses_ok(); }
+my $numtests;
+BEGIN {
+	$numtests = 2;
 
-use Test::More tests => 2;
+	eval "use Test::NoWarnings";
+	if ( ! $@ ) {
+		# increment by one
+		$numtests++;
+
+	}
+}
+
+use Test::More tests => $numtests;
 use_ok( 'POE::Component::SimpleDBI::SubProcess' );
 use_ok( 'POE::Component::SimpleDBI' );
