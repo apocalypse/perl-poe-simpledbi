@@ -7,7 +7,6 @@
 \B\.git\b
 
 # Avoid Makemaker generated and utility files.
-\bMANIFEST\.SKIP
 \bMakefile$
 \bblib/
 \bMakeMaker-\d
