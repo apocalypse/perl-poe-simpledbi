@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.26';
+$VERSION = '1.27';
 
 # Use Error.pm's try/catch semantics
 use Error qw( :try );
@@ -24,18 +24,18 @@ my $DB = undef;
 # Save the connect struct for future use
 my $CONN = undef;
 
-# Autoflush to avoid weirdness
-$|++;
-
 # Sysread error hits
 my $sysreaderr = 0;
 
-# Set the binmode stuff
-binmode( STDIN );
-binmode( STDOUT );
-
 # This is the subroutine that will get executed upon the fork() call by our parent
 sub main {
+	# Autoflush to avoid weirdness
+	$|++;
+
+	# set binmode, thanks RT #43442
+	binmode( STDIN );
+	binmode( STDOUT );
+
 	# Okay, now we listen for commands from our parent :)
 	while ( sysread( STDIN, my $buffer = '', 1024 ) ) {
 		# Feed the line into the filter
