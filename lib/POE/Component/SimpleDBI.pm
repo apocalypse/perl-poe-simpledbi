@@ -1975,6 +1975,10 @@ L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=POE-Component-SimpleDBI>
 
 L<http://search.cpan.org/dist/POE-Component-SimpleDBI>
 
+=item * CPAN::Forum
+
+L<http://www.cpanforum.com/dist/POE-Component-SimpleDBI>
+
 =back
 
 =head2 Bugs

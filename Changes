@@ -5,6 +5,7 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 	Fixed RT#43408 ( fix "Modification of a read-only value attempted at" error at shutdown ) - thanks acferen!
 	Fixed RT#43442 ( tweak binmode for MSWin32 ) - thanks acferen!
 	Added link to the github.com repository in the POD
+	Added link to CPAN::Forum in the POD
 
 * 1.26
 
