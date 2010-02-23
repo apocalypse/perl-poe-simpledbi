@@ -1,13 +1,14 @@
-Makefile.PL
 Build.PL
 MANIFEST
 MANIFEST.SKIP
 README
-lib/POE/Component/SimpleDBI.pm
-lib/POE/Component/SimpleDBI/SubProcess.pm
+Makefile.PL
 META.yml
 Changes
 LICENSE
+
+lib/POE/Component/SimpleDBI.pm
+lib/POE/Component/SimpleDBI/SubProcess.pm
 
 examples/db.pl
 

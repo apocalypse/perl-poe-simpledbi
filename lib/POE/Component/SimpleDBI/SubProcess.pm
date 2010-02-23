@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.27';
+$VERSION = '1.28';
 
 # Use Error.pm's try/catch semantics
 use Error qw( :try );
@@ -27,6 +27,9 @@ my $CONN = undef;
 # Sysread error hits
 my $sysreaderr = 0;
 
+# Shut up Perl::Critic!
+## no critic ( ProhibitAccessOfPrivateData )
+
 # This is the subroutine that will get executed upon the fork() call by our parent
 sub main {
 	# Autoflush to avoid weirdness
@@ -44,7 +47,7 @@ sub main {
 		# INPUT STRUCTURE IS:
 		# $d->{'ACTION'}	= SCALAR	->	WHAT WE SHOULD DO
 		# $d->{'SQL'}		= SCALAR	->	THE ACTUAL SQL
-			# $d->{'SQL'}		= ARRAY		->	THE ACTUAL SQL ( in case of ATOMIC )
+		# $d->{'SQL'}		= ARRAY		->	THE ACTUAL SQL ( in case of ATOMIC )
 		# $d->{'PLACEHOLDERS'}	= ARRAY		->	PLACEHOLDERS WE WILL USE
 		# $d->{'PREPARE_CACHED'}= BOOLEAN	->	USE CACHED QUERIES?
 		# $d->{'ID'}		= SCALAR	->	THE QUERY ID ( FOR PARENT TO KEEP TRACK OF WHAT IS WHAT )
@@ -83,7 +86,7 @@ sub main {
 				}
 
 				# EXIT!
-				exit 0;
+				return;
 			} else {
 				# Unrecognized action!
 				output( Make_Error( $input->{'ID'}, 'Unknown action sent from parent' ) );
@@ -97,7 +100,7 @@ sub main {
 	# If we got more than 5 sysread errors, abort!
 	if ( ++$sysreaderr == 5 ) {
 		if ( defined $DB ) { $DB->disconnect() }
-		exit 0;
+		return;
 	} else {
 		goto &main;
 	}
@@ -672,10 +675,10 @@ sub output {
 	return;
 }
 
-# End of module
 1;
-
 __END__
+
+=for stopwords DBI
 
 =head1 NAME
 
@@ -700,7 +703,7 @@ Apocalypse E<lt>apocal@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 by Apocalypse
+Copyright 2010 by Apocalypse
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.27';
+$VERSION = '1.28';
 
 # Import what we need from the POE namespace
 use POE;			# For the constants
@@ -547,7 +547,7 @@ sub DB_CONNECT {
 
 	# Check for unknown args
 	foreach my $key ( keys %args ) {
-		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT)$/ ) {
+		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT|BAGGAGE)$/ ) {
 			if ( DEBUG ) {
 				warn "Unknown argument to CONNECT -> $key";
 			}
@@ -624,6 +624,7 @@ sub DB_CONNECT {
 				'ACTION'	=>	'CONNECT',
 				'EVENT'		=>	$args{'EVENT'},
 				'SESSION'	=>	$args{'SESSION'},
+				( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
 				}
 			);
 			return;
@@ -652,6 +653,7 @@ sub DB_CONNECT {
 			'ACTION'	=> 'CONNECT',
 			'EVENT'		=> $args{'EVENT'},
 			'SESSION'	=> $args{'SESSION'},
+			( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
 			}
 		);
 		return;
@@ -705,7 +707,7 @@ sub DB_DISCONNECT {
 
 	# Check for unknown args
 	foreach my $key ( keys %args ) {
-		if ( $key !~ /^(?:SESSION|EVENT|NOW|CLEAR)$/ ) {
+		if ( $key !~ /^(?:SESSION|EVENT|NOW|CLEAR|BAGGAGE)$/ ) {
 			if ( DEBUG ) {
 				warn "Unknown argument to DISCONNECT -> $key";
 			}
@@ -765,6 +767,7 @@ sub DB_DISCONNECT {
 			'ACTION'	=> 'DISCONNECT',
 			'EVENT'		=> $args{'EVENT'},
 			'SESSION'	=> $args{'SESSION'},
+			( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
 			}
 		);
 		return;
@@ -835,6 +838,7 @@ sub Clear_Queue {
 	}
 
 	# Go over our queue, and do some stuff
+	## no critic ( ProhibitAccessOfPrivateData )
 	foreach my $queue ( @{ $_[HEAP]->{'QUEUE'} } ) {
 		# Skip the special EXIT actions we might have put on the queue
 		if ( $queue->{'ACTION'} eq 'EXIT' ) { next }
@@ -1147,9 +1151,9 @@ sub ChildClosed {
 	# Should we create it again?
 	if ( ! $_[HEAP]->{'SHUTDOWN'} and $_[HEAP]->{'CONNECTED'} ) {
 		# Create the wheel again
+		$_[HEAP]->{'CONNECTED'} = 0;
 		$_[KERNEL]->call( $_[SESSION], 'Setup_Wheel' );
 	} else {
-		# We are disconnected!
 		$_[HEAP]->{'CONNECTED'} = 0;
 	}
 
@@ -1172,6 +1176,8 @@ sub ChildError {
 sub Got_STDOUT {
 	# The data!
 	my $data = $_[ARG0];
+
+	## no critic ( ProhibitAccessOfPrivateData )
 
 	# Validate the argument
 	if ( ! ref $data or ref( $data ) ne 'HASH' ) {
@@ -1274,10 +1280,10 @@ sub Got_STDOUT {
 		if ( exists $query->{'PLACEHOLDERS'} ) {
 			$ret->{'PLACEHOLDERS'} = $query->{'PLACEHOLDERS'};
 		}
+	}
 
-		if ( exists $query->{'BAGGAGE'} ) {
-			$ret->{'BAGGAGE'} = $query->{'BAGGAGE'};
-		}
+	if ( exists $query->{'BAGGAGE'} ) {
+		$ret->{'BAGGAGE'} = $query->{'BAGGAGE'};
 	}
 
 	# Send the data to the appropriate place
@@ -1309,6 +1315,9 @@ sub Got_STDERR {
 
 1;
 __END__
+
+=for stopwords ARG DBI Kwalitee OID PostgreSQL SQL SimpleDBI's com diff github placeholders
+
 =head1 NAME
 
 POE::Component::SimpleDBI - Asynchronous non-blocking DBI calls in POE made simple
@@ -1538,6 +1547,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		NOW		->	Tells SimpleDBI to bypass the queue and connect NOW!
 		CLEAR		->	Tells SimpleDBI to clear the queue and connect NOW!
 		AUTO_COMMIT	->	The boolean value we will pass to DBI->connect ( defaults to true )
+		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 
 	NOTE: if the DSN/USERNAME/PASSWORD/SESSION/EVENT does not exist, SimpleDBI assumes you wanted to use
 	the old connection and will use the cached values ( if you told it to DISCONNECT ).
@@ -1596,6 +1606,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		EVENT		->	The event to send the results
 		NOW		->	Tells SimpleDBI to bypass the queue and disconnect NOW!
 		CLEAR		->	Tells SimpleDBI to clear the queue and disconnect NOW!
+		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 
 	Here's an example on how to trigger this event:
 
@@ -1718,8 +1729,6 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 		PREPARE_CACHED	->	Boolean value ( if needed )
 
-	XXX Beware! I incorrectly stated that this returns lowercase rows, this is not true! XXX
-
 	Internally, it does this:
 
 	$sth = $dbh->prepare_cached( $SQL );
@@ -1752,7 +1761,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 	This query is specialized for those queries where you will get more than 1 result back.
 
-	XXX Keep in mind: the column names are all lowercased automatically! XXX
+	WARNING! The column names are all lowercased automatically! WARNING!
 
 	Accepted arguments:
 		SESSION		->	The session to send the results
@@ -1839,7 +1848,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		if ( $@ ) {
 			return ROLLBACK_FAILURE;
 		} else {
-			return COMMIT_FAILURE:
+			return COMMIT_FAILURE;
 		}
 	} else {
 		return SUCCESS;
@@ -1959,6 +1968,10 @@ You can find documentation for this module with the perldoc command.
 
 =over 4
 
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/POE-Component-SimpleDBI>
+
 =item * AnnoCPAN: Annotated CPAN documentation
 
 L<http://annocpan.org/dist/POE-Component-SimpleDBI>
@@ -1967,17 +1980,33 @@ L<http://annocpan.org/dist/POE-Component-SimpleDBI>
 
 L<http://cpanratings.perl.org/d/POE-Component-SimpleDBI>
 
-=item * RT: CPAN's request tracker
+=item * CPAN Forum
+
+L<http://cpanforum.com/dist/POE-Component-SimpleDBI>
+
+=item * RT: CPAN's Request Tracker
 
 L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=POE-Component-SimpleDBI>
 
-=item * Search CPAN
+=item * CPANTS Kwalitee
 
-L<http://search.cpan.org/dist/POE-Component-SimpleDBI>
+L<http://cpants.perl.org/dist/overview/POE-Component-SimpleDBI>
 
-=item * CPAN::Forum
+=item * CPAN Testers Results
 
-L<http://www.cpanforum.com/dist/POE-Component-SimpleDBI>
+L<http://cpantesters.org/distro/P/POE-Component-SimpleDBI.html>
+
+=item * CPAN Testers Matrix
+
+L<http://matrix.cpantesters.org/?dist=POE-Component-SimpleDBI>
+
+=item * Git Source Code Repository
+
+This code is currently hosted on github.com under the account "apocalypse". Please feel free to browse it
+and pull from it, or whatever. If you want to contribute patches, please send me a diff or prod me to pull
+from your repository :)
+
+L<http://github.com/apocalypse/perl-poe-simpledbi>
 
 =back
 
@@ -1987,21 +2016,13 @@ Please report any bugs or feature requests to C<bug-poe-component-simpledbi at r
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=POE-Component-SimpleDBI>.  I will be
 notified, and then you'll automatically be notified of progress on your bug as I make changes.
 
-=head2 Code Repository
-
-This code is currently hosted on github.com under the account "apocalypse". Please feel free to browse it
-and pull from it, or whatever. If you want to contribute patches, please send me a diff or prod me to pull
-from your repository :)
-
-L<http://github.com/apocalypse/perl-poe-simpledbi/tree/master>
-
 =head1 AUTHOR
 
 Apocalypse E<lt>apocal@cpan.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2009 by Apocalypse
+Copyright 2010 by Apocalypse
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
