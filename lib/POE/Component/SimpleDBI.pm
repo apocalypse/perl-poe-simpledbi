@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.28';
+$VERSION = '1.29';
 
 # Import what we need from the POE namespace
 use POE;			# For the constants
@@ -102,13 +102,6 @@ sub new {
 
 			# Are we shutting down?
 			'SHUTDOWN'	=>	0,
-
-			# The DB Info
-			'DB_DSN'	=>	undef,
-			'DB_USERNAME'	=>	undef,
-			'DB_PASSWORD'	=>	undef,
-			'DB_EVENT'	=>	undef,
-			'DB_SESSION'	=>	undef,
 
 			# Are we connected?
 			'CONNECTED'	=>	0,
@@ -501,7 +494,7 @@ sub DB_ATOMIC {
 			'SQL'		=>	$args{'SQL'},
 			( exists $args{'PLACEHOLDERS'} ? ( 'PLACEHOLDERS' => $args{'PLACEHOLDERS'} ) : () ),
 			( exists $args{'BAGGAGE'} ? ( 'BAGGAGE' => $args{'BAGGAGE'} ) : () ),
-			'ERROR'		=>	'POE::Component::SimpleDBI is shutting down now, requests are not accepted!',
+			'ERROR'		=>	__PACKAGE__ . ' is shutting down now, requests are not accepted!',
 			'ACTION'	=>	$args{'ACTION'},
 			'EVENT'		=>	$args{'EVENT'},
 			'SESSION'	=>	$args{'SESSION'},
@@ -547,7 +540,7 @@ sub DB_CONNECT {
 
 	# Check for unknown args
 	foreach my $key ( keys %args ) {
-		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT|BAGGAGE)$/ ) {
+		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT|BAGGAGE|CACHEDKIDS)$/ ) {
 			if ( DEBUG ) {
 				warn "Unknown argument to CONNECT -> $key";
 			}
@@ -556,8 +549,8 @@ sub DB_CONNECT {
 	}
 
 	# Add the cached copy if applicable
-	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT ) ) {
-		if ( ! exists $args{ $key } and defined $_[HEAP]->{ 'DB_' . $key } ) {
+	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT CACHEDKIDS ) ) {
+		if ( ! exists $args{ $key } and exists $_[HEAP]->{ 'DB_' . $key } ) {
 			$args{ $key } = $_[HEAP]->{ 'DB_' . $key };
 		}
 	}
@@ -566,6 +559,22 @@ sub DB_CONNECT {
 	$args{'ACTION'} = 'CONNECT';
 	if ( ! exists $args{'SESSION'} ) {
 		$args{'SESSION'} = $_[SENDER]->ID();
+	}
+
+	# set default AutoCommit = 1
+	if ( ! exists $args{'AUTO_COMMIT'} ) {
+		$args{'AUTO_COMMIT'} = 1;
+	} else {
+		if ( $args{'AUTO_COMMIT'} ) {
+			$args{'AUTO_COMMIT'} = 1;
+		} else {
+			$args{'AUTO_COMMIT'} = 0;
+		}
+	}
+
+	# set default CACHEDKIDS = undef
+	if ( ! exists $args{'CACHEDKIDS'} ) {
+		$args{'CACHEDKIDS'} = undef;
 	}
 
 	# Check for Session
@@ -631,17 +640,6 @@ sub DB_CONNECT {
 		}
 	}
 
-	# set default AutoCommit = 1
-	if ( ! exists $args{'AUTO_COMMIT'} ) {
-		$args{'AUTO_COMMIT'} = 1;
-	} else {
-		if ( $args{'AUTO_COMMIT'} ) {
-			$args{'AUTO_COMMIT'} = 1;
-		} else {
-			$args{'AUTO_COMMIT'} = 0;
-		}
-	}
-
 	# Some sanity
 	if ( exists $args{'NOW'} and $args{'NOW'} and $_[HEAP]->{'CONNECTED'} ) {
 		# Okay, send the error to the Event
@@ -692,7 +690,7 @@ sub DB_CONNECT {
 	}
 
 	# Save the connection info
-	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT ) ) {
+	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT CACHEDKIDS ) ) {
 		$_[HEAP]->{ 'DB_' . $key } = $args{ $key };
 	}
 
@@ -858,6 +856,10 @@ sub Clear_Queue {
 			$ret->{'USERNAME'} = $queue->{'USERNAME'};
 			$ret->{'PASSWORD'} = $queue->{'PASSWORD'};
 			$ret->{'AUTO_COMMIT'} = $queue->{'AUTO_COMMIT'};
+
+			if ( defined $queue->{'CACHEDKIDS'} ) {
+				$ret->{'CACHEDKIDS'} = $queue->{'CACHEDKIDS'};
+			}
 		} elsif ( $queue->{'ACTION'} ne 'DISCONNECT' ) {
 			$ret->{'SQL'} = $queue->{'SQL'};
 
@@ -928,6 +930,10 @@ sub Check_Queue {
 				$queue{'USERNAME'} = $_[HEAP]->{'QUEUE'}->[0]->{'USERNAME'};
 				$queue{'PASSWORD'} = $_[HEAP]->{'QUEUE'}->[0]->{'PASSWORD'};
 				$queue{'AUTO_COMMIT'} = $_[HEAP]->{'QUEUE'}->[0]->{'AUTO_COMMIT'};
+
+				if ( defined $_[HEAP]->{'QUEUE'}->[0]->{'CACHEDKIDS'} ) {
+					$queue{'CACHEDKIDS'} = $_[HEAP]->{'QUEUE'}->[0]->{'CACHEDKIDS'};
+				}
 			} elsif ( $queue{'ACTION'} ne 'DISCONNECT' ) {
 				$queue{'SQL'} = $_[HEAP]->{'QUEUE'}->[0]->{'SQL'};
 
@@ -1034,7 +1040,7 @@ sub Setup_Wheel {
 
 	# Check if we should set up the wheel
 	if ( $_[HEAP]->{'Retries'} == MAX_RETRIES ) {
-		die 'POE::Component::SimpleDBI tried ' . MAX_RETRIES . ' times to create a Wheel and is giving up...';
+		die __PACKAGE__ . ' tried ' . MAX_RETRIES . ' times to create a Wheel and is giving up...';
 	}
 
 	# Add the windows method
@@ -1139,7 +1145,7 @@ sub Stop {
 sub ChildClosed {
 	# Emit debugging information
 	if ( DEBUG ) {
-		warn "POE::Component::SimpleDBI's Wheel died!";
+		warn __PACKAGE__ . "'s Wheel died!";
 	}
 
 	# Get rid of the wheel
@@ -1166,7 +1172,7 @@ sub ChildError {
 	if ( DEBUG ) {
 		# Copied from POE::Wheel::Run manpage
 		my ( $operation, $errnum, $errstr ) = @_[ ARG0 .. ARG2 ];
-		warn "POE::Component::SimpleDBI got an $operation error $errnum: $errstr\n";
+		warn __PACKAGE__ . " got an $operation error $errnum: $errstr\n";
 	}
 
 	return;
@@ -1181,7 +1187,7 @@ sub Got_STDOUT {
 
 	# Validate the argument
 	if ( ! ref $data or ref( $data ) ne 'HASH' ) {
-		warn "POE::Component::SimpleDBI did not get a hash from the SubProcess ( $data )";
+		warn __PACKAGE__ . " did not get a hash from the SubProcess ( $data )";
 		return;
 	}
 
@@ -1220,6 +1226,7 @@ sub Got_STDOUT {
 			'USERNAME'	=>	$_[HEAP]->{'DB_USERNAME'},
 			'PASSWORD'	=>	$_[HEAP]->{'DB_PASSWORD'},
 			'AUTO_COMMIT'	=>	$_[HEAP]->{'DB_AUTO_COMMIT'},
+			'CACHEDKIDS'	=>	$_[HEAP]->{'DB_CACHEDKIDS'},
 		};
 
 		# Okay, we have to inform the session it failed and couldn't reconnect
@@ -1274,6 +1281,7 @@ sub Got_STDOUT {
 		$ret->{'USERNAME'} = $query->{'USERNAME'};
 		$ret->{'PASSWORD'} = $query->{'PASSWORD'};
 		$ret->{'AUTO_COMMIT'} = $query->{'AUTO_COMMIT'};
+		$ret->{'CACHEDKIDS'} = $query->{'CACHEDKIDS'} if defined $query->{'CACHEDKIDS'};
 	} elsif ( $query->{'ACTION'} ne 'DISCONNECT' ) {
 		$ret->{'SQL'} = $query->{'SQL'};
 
@@ -1308,7 +1316,7 @@ sub Got_STDERR {
 	# Skip empty lines as the POE::Filter::Line manpage says...
 	if ( $input eq '' ) { return }
 
-	warn "POE::Component::SimpleDBI Got STDERR from child, which should never happen ( $input )";
+	warn __PACKAGE__ . " Got STDERR from child, which should never happen ( $input )";
 
 	return;
 }
@@ -1547,6 +1555,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		NOW		->	Tells SimpleDBI to bypass the queue and connect NOW!
 		CLEAR		->	Tells SimpleDBI to clear the queue and connect NOW!
 		AUTO_COMMIT	->	The boolean value we will pass to DBI->connect ( defaults to true )
+		CACHEDKIDS	->	Controls the method to cache prepare_cached queries, an arrayref ( defaults to undef )
 		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 
 	NOTE: if the DSN/USERNAME/PASSWORD/SESSION/EVENT does not exist, SimpleDBI assumes you wanted to use
@@ -1594,6 +1603,19 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 	with an extra key: 'GONE'. In this state SimpleDBI is deadlocked, any new queries will not be processed until a
 	CONNECT NOW event is issued! Keep in mind the SINGLE/etc queries WILL NOT receive an error if this happens, the error
 	goes straight to the CONNECT handler to keep it simple!
+
+	As of 1.29 SimpleDBI added better control of the prepare_cached cache. Some users reported that the subprocess' memory
+	usage was leaking, and in extreme cases reached several gigs! Upon investigation, it was not SimpleDBI's fault but the
+	way DBI works. What DBI does is cache the statement handle from $dbh->prepare_cached in the $dbh handle. The problem is
+	that it stays around forever in the default implementation! Perusing the DBI docs revealed that it was possible to tie
+	this cache to a custom cache module. So I've added the CACHEDKIDS argument, and setting it to an arrayref will enable the
+	behavior. Look at L<http://search.cpan.org/~timb/DBI-1.609/DBI.pm#prepare_cached> for more information. Here's an example:
+
+		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ..., 'CACHEDKIDS' => [ 'Tie::Cache::LRU' ] );
+
+	The first element in the array is the module to use when tying the cache. Any additional elements are passed to the module's
+	constructor. Please look at the docs for your favorite cache module! If users report success with this, in a future version
+	of SimpleDBI it might become the default behavior. Keep in mind that this will be redundant if PREPARE_CACHED == 0.
 
 =head3 C<DISCONNECT>
 

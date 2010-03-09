@@ -4,7 +4,7 @@ use strict; use warnings;
 
 # Initialize our version
 use vars qw( $VERSION );
-$VERSION = '1.28';
+$VERSION = '1.29';
 
 # Use Error.pm's try/catch semantics
 use Error qw( :try );
@@ -159,6 +159,17 @@ sub DB_CONNECT {
 			if ( ! defined $DB ) {
 				die "Error Connecting: $DBI::errstr";
 			} else {
+				# Did we request a custom cache module?
+				if ( defined $data->{'CACHEDKIDS'} ) {
+					eval "require $data->{'CACHEDKIDS'}->[0]";
+					die "Unable to load custom caching module: $@" if $@;
+
+					# code lifted from DBI's POD, thanks!
+					my $cache;
+					tie %$cache, @{ $data->{'CACHEDKIDS'} };
+					$DB->{'CachedKids'} = $cache;
+				}
+
 				# Output success
 				$output = {
 					'ID'	=>	$data->{'ID'},
