@@ -1,19 +1,15 @@
-# Declare our package
 package POE::Component::SimpleDBI::SubProcess;
-use strict; use warnings;
 
-# Initialize our version
-use vars qw( $VERSION );
-$VERSION = '1.29';
+# ABSTRACT: Backend of POE::Component::SimpleDBI
 
 # Use Error.pm's try/catch semantics
-use Error qw( :try );
+use Error 0.15 qw( :try );
 
 # We pass in data to POE::Filter::Reference
 use POE::Filter::Reference;
 
 # We run the actual DB connection here
-use DBI;
+use DBI 1.30;
 
 # Our Filter object
 my $filter = POE::Filter::Reference->new();
@@ -687,36 +683,14 @@ sub output {
 }
 
 1;
-__END__
+
+=pod
 
 =for stopwords DBI
 
-=head1 NAME
-
-POE::Component::SimpleDBI::SubProcess - Backend of POE::Component::SimpleDBI
-
-=head1 ABSTRACT
+=head1 DESCRIPTION
 
 This module is responsible for implementing the guts of POE::Component::SimpleDBI.
 Namely, the fork/exec and the connection to the DBI.
-
-=head2 EXPORT
-
-Nothing.
-
-=head1 SEE ALSO
-
-L<POE::Component::SimpleDBI>
-
-=head1 AUTHOR
-
-Apocalypse E<lt>apocal@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright 2010 by Apocalypse
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
 
 =cut

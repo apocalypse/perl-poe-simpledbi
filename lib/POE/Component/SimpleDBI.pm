@@ -1,10 +1,6 @@
-# Declare our package
 package POE::Component::SimpleDBI;
-use strict; use warnings;
 
-# Initialize our version
-use vars qw( $VERSION );
-$VERSION = '1.29';
+# ABSTRACT: Asynchronous non-blocking DBI calls in POE made simple
 
 # Import what we need from the POE namespace
 use POE;			# For the constants
@@ -1322,13 +1318,10 @@ sub Got_STDERR {
 }
 
 1;
-__END__
+
+=pod
 
 =for stopwords ARG DBI Kwalitee OID PostgreSQL SQL SimpleDBI's com diff github placeholders
-
-=head1 NAME
-
-POE::Component::SimpleDBI - Asynchronous non-blocking DBI calls in POE made simple
 
 =head1 SYNOPSIS
 
@@ -1403,19 +1396,14 @@ POE::Component::SimpleDBI - Asynchronous non-blocking DBI calls in POE made simp
 		},
 	);
 
-=head1 ABSTRACT
-
-	This module simplifies DBI usage in POE's multitasking world.
-
-	This module is a breeze to use, you'll have DBI calls in your POE program
-	up and running in only a few seconds of setup.
-
-	This module does what XML::Simple does for the XML world.
-
-	If you want more advanced usage, check out:
-		POE::Component::LaDBI
-
 =head1 DESCRIPTION
+
+This module simplifies DBI usage in POE's multitasking world.
+
+This module is a breeze to use, you'll have DBI calls in your POE program
+up and running in only a few seconds of setup.
+
+This module does what XML::Simple does for the XML world.
 
 This module works its magic by creating a new session with POE, then spawning off a child process
 to do the "heavy" lifting. That way, your main POE process can continue servicing other clients.
@@ -1609,7 +1597,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 	way DBI works. What DBI does is cache the statement handle from $dbh->prepare_cached in the $dbh handle. The problem is
 	that it stays around forever in the default implementation! Perusing the DBI docs revealed that it was possible to tie
 	this cache to a custom cache module. So I've added the CACHEDKIDS argument, and setting it to an arrayref will enable the
-	behavior. Look at L<http://search.cpan.org/~timb/DBI-1.609/DBI.pm#prepare_cached> for more information. Here's an example:
+	behavior. Look at L<http://search.cpan.org/dist/DBI/DBI.pm#prepare_cached> for more information. Here's an example:
 
 		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ..., 'CACHEDKIDS' => [ 'Tie::Cache::LRU' ] );
 
@@ -1966,87 +1954,10 @@ You can override this behavior by doing this:
 	sub POE::Component::SimpleDBI::MAX_RETRIES () { 10 }
 	use POE::Component::SimpleDBI;
 
-=head2 EXPORT
-
-Nothing.
-
 =head1 SEE ALSO
-
-L<DBI>
-
-L<POE::Component::DBIAgent>
-
-L<POE::Component::LaDBI>
-
-L<POE::Component::EasyDBI>
-
-=head1 SUPPORT
-
-You can find documentation for this module with the perldoc command.
-
-    perldoc POE::Component::SimpleDBI
-
-=head2 Websites
-
-=over 4
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/POE-Component-SimpleDBI>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/POE-Component-SimpleDBI>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/POE-Component-SimpleDBI>
-
-=item * CPAN Forum
-
-L<http://cpanforum.com/dist/POE-Component-SimpleDBI>
-
-=item * RT: CPAN's Request Tracker
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=POE-Component-SimpleDBI>
-
-=item * CPANTS Kwalitee
-
-L<http://cpants.perl.org/dist/overview/POE-Component-SimpleDBI>
-
-=item * CPAN Testers Results
-
-L<http://cpantesters.org/distro/P/POE-Component-SimpleDBI.html>
-
-=item * CPAN Testers Matrix
-
-L<http://matrix.cpantesters.org/?dist=POE-Component-SimpleDBI>
-
-=item * Git Source Code Repository
-
-This code is currently hosted on github.com under the account "apocalypse". Please feel free to browse it
-and pull from it, or whatever. If you want to contribute patches, please send me a diff or prod me to pull
-from your repository :)
-
-L<http://github.com/apocalypse/perl-poe-simpledbi>
-
-=back
-
-=head2 Bugs
-
-Please report any bugs or feature requests to C<bug-poe-component-simpledbi at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=POE-Component-SimpleDBI>.  I will be
-notified, and then you'll automatically be notified of progress on your bug as I make changes.
-
-=head1 AUTHOR
-
-Apocalypse E<lt>apocal@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright 2010 by Apocalypse
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+DBI
+POE::Component::DBIAgent
+POE::Component::LaDBI
+POE::Component::EasyDBI
 
 =cut

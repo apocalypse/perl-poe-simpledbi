@@ -1,11 +1,15 @@
 Revision history for Perl extension POE::Component::SimpleDBI.
 
-* 1.29
+{{$NEXT}}
+
+	Converted to Dist::Zilla for the release process!
+
+1.29
 
 	Added better caching control in the SubProcess - resolves a memory leak, thanks Andrew Feren and wirelessdreamer!
 	Added the CACHEDKIDS argument to CONNECT
 
-* 1.28
+1.28
 
 	Minor POD tweaks
 	Fixed RT#45948 ( Database doesn't reconnect when child died ) - thanks Paul Williams!
@@ -13,28 +17,28 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 	Fixed RT#48400 ( BAGGAGE not a valid argument for CONNECT ) - thanks Andrew Feren!
 	BAGGAGE is now a valid argument for CONNECT/DISCONNECT
 
-* 1.27
+1.27
 
 	Fixed RT#43408 ( fix "Modification of a read-only value attempted at" error at shutdown ) - thanks acferen!
 	Fixed RT#43442 ( tweak binmode for MSWin32 ) - thanks acferen!
 	Added link to the github.com repository in the POD
 	Added link to CPAN::Forum in the POD
 
-* 1.26
+1.26
 
 	Kwalitee-related fixes ( moved to Test::Apocalypse )
 	Fixed RT#42890 ( tweaked Wheel::Run arguments on Win32, please yell at me if it doesn't work for you! )
 	Added sigCHLD management
 
-* 1.25
+1.25
 
 	Kwalitee-related fixes
 
-* 1.24
+1.24
 
 	Bumped Test::More prereq to 0.86 because I was getting FAIL reports from outdated people :(
 
-* 1.23
+1.23
 
 	Switched to Build.PL for the build system
 	Fixed the stupid test dependencies, thanks BiNGOs!
@@ -42,31 +46,31 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 	Added some more author tests
 	Added AUTO_COMMIT argument to CONNECT to control the DBI variable ( defaults to true )
 
-* 1.22
+1.22
 
 	Kwalitee-related fixes
 
-* 1.21
+1.21
 
 	silence warnings when used with DBD::SQLite - thanks to Sjors Gielen for tracking this down!
 
-* 1.20
+1.20
 
 	Added the INSERT_ID to control $dbh->last_insert_id usage
 
-* 1.19
+1.19
 
 	Added the PREPARE_CACHED argument to control caching
 
-* 1.18
+1.18
 
 	Ignore the DBI error for last_insert_id and default to undef
 
-* 1.17
+1.17
 
 	Added "INSERTID" to the result of DO
 
-* 1.16
+1.16
 
 	Noticed a glaring documentation bug
 		- SINGLE queries return mixedCaps rows ( not lowercase! )
@@ -76,29 +80,29 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 	Fixed SimpleDBI failure on Win32 - thanks RT #23851
 
-* 1.15
+1.15
 
 	Thanks to Fred Castellano, who stumbled on a DEADLOCK bug, fixed!
 	Added sanity tests to CONNECT/DISCONNECT
 
-* 1.14
+1.14
 
 	learned about the difference between ref $self and ref( $self )
 	Kwalitee-related fixes
 
-* 1.13
+1.13
 
 	Finally use a Changes file - thanks RT #18981
 	Fixed a bug in SINGLE if returned_rows = 0 it will not return undef, but give us blank rows!
 	Documentation tweaks
 
-* 1.12
+1.12
 
 	In the SubProcess, added a binmode() to STDIN and STDERR, for the windows attempt
 	Added code to make SimpleDBI work in Win32 boxes, thanks to the recent Wheel::Run patches!
 	Documentation tweaks as usual
 
-* 1.11
+1.11
 
 	Hannes had a problem:
 		His IRC bot logs events to a database, and sometimes there is no events to log after
@@ -107,11 +111,11 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 	The solution was to do a $dbh->ping() before each query, if your DBI driver does it inefficiently, go yell at them!
 	In the event that a reconnect is not possible, an error will be sent to the CONNECT event handler, look at the updated pod.
 
-* 1.10
+1.10
 
 	Fixed a bug in the DO routine, thanks to Hannes!
 
-* 1.09
+1.09
 
 	Removed the abstract LIMIT 1 to the SINGLE query
 
@@ -139,11 +143,11 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 	Added a new command -> Clear_Queue ( clears the queue )
 
-* 1.08
+1.08
 
 	In the SubProcess, removed the select statement requirement
 
-* 1.07
+1.07
 
 	In the SubProcess, fixed a silly mistake in DO's execution of placeholders
 
@@ -155,19 +159,19 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 	Documented the _child events
 
-* 1.06
+1.06
 
 	Fixed some typos in the POD
 
 	Added the BAGGAGE option
 
-* 1.05
+1.05
 
 	Fixed some typos in the POD
 
 	Fixed the DEBUG + MAX_RETRIES "Subroutine redefined" foolishness
 
-* 1.04
+1.04
 
 	Got rid of the EVENT_S and EVENT_E handlers, replaced with a single EVENT handler
 
@@ -185,7 +189,7 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 	Fixed some typos in the POD
 
-* 1.03
+1.03
 
 	Increments refcount for querying sessions so they don't go away
 
@@ -201,6 +205,6 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 	SubProcess -> added DBI connect failure handling
 
-* 1.02
+1.02
 
 	Initial release
