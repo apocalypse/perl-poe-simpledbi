@@ -2,7 +2,11 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 {{$NEXT}}
 
+1.30
+	Released: 2011-02-10 02:58:17 UTC
+
 	Converted to Dist::Zilla for the release process!
+	Added SYNCHRONOUS_MODE to new() for easier DB debugging - thanks RCAPUTO!
 
 1.29
 
