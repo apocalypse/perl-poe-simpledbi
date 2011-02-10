@@ -54,39 +54,8 @@ sub main {
 
 		# Process each data structure
 		foreach my $input ( @$data ) {
-			# Now, we do the actual work depending on what kind of query it was
-			if ( $input->{'ACTION'} eq 'CONNECT' ) {
-				# Connect!
-				DB_CONNECT( $input );
-			} elsif ( $input->{'ACTION'} eq 'DISCONNECT' ) {
-				# Disconnect!
-				DB_DISCONNECT( $input );
-			} elsif ( $input->{'ACTION'} eq 'DO' ) {
-				# Fire off the SQL and return success/failure + rows affected
-				DB_DO( $input );
-			} elsif ( $input->{'ACTION'} eq 'SINGLE' ) {
-				# Return a single result
-				DB_SINGLE( $input );
-			} elsif ( $input->{'ACTION'} eq 'MULTIPLE' ) {
-				# Get many results, then return them all at the same time
-				DB_MULTIPLE( $input );
-			} elsif ( $input->{'ACTION'} eq 'QUOTE' ) {
-				DB_QUOTE( $input );
-			} elsif ( $input->{'ACTION'} eq 'ATOMIC' ) {
-				DB_ATOMIC( $input );
-			} elsif ( $input->{'ACTION'} eq 'EXIT' ) {
-				# Cleanly disconnect from the DB
-				if ( defined $DB ) {
-					$DB->disconnect();
-					undef $DB;
-				}
-
-				# EXIT!
-				return;
-			} else {
-				# Unrecognized action!
-				output( Make_Error( $input->{'ID'}, 'Unknown action sent from parent' ) );
-			}
+			output( process_request( $input ) );
+			return if $input->{'ACTION'} eq 'EXIT';
 		}
 	}
 
@@ -102,6 +71,45 @@ sub main {
 	}
 
 	return;
+}
+
+sub process_request {
+	my $input = shift;
+
+	# Now, we do the actual work depending on what kind of query it was
+	if ( $input->{'ACTION'} eq 'CONNECT' ) {
+		# Connect!
+		my ($success, $output) = DB_CONNECT($input, 0);
+		return $output;
+	} elsif ( $input->{'ACTION'} eq 'DISCONNECT' ) {
+		# Disconnect!
+		return DB_DISCONNECT( $input );
+	} elsif ( $input->{'ACTION'} eq 'DO' ) {
+		# Fire off the SQL and return success/failure + rows affected
+		return DB_DO( $input );
+	} elsif ( $input->{'ACTION'} eq 'SINGLE' ) {
+		# Return a single result
+		return DB_SINGLE( $input );
+	} elsif ( $input->{'ACTION'} eq 'MULTIPLE' ) {
+		# Get many results, then return them all at the same time
+		return DB_MULTIPLE( $input );
+	} elsif ( $input->{'ACTION'} eq 'QUOTE' ) {
+		return DB_QUOTE( $input );
+	} elsif ( $input->{'ACTION'} eq 'ATOMIC' ) {
+		return DB_ATOMIC( $input );
+	} elsif ( $input->{'ACTION'} eq 'EXIT' ) {
+		# Cleanly disconnect from the DB
+		if ( defined $DB ) {
+			$DB->disconnect();
+			undef $DB;
+		}
+
+		# EXIT!
+		return;
+	}
+
+	# Unrecognized action!
+	return( Make_Error( $input->{'ID'}, 'Unknown action sent from parent' ) );
 }
 
 # Connects to the DB
@@ -185,15 +193,15 @@ sub DB_CONNECT {
 
 	# All done!
 	if ( ! defined $reconn ) {
-		output( $output );
+		return (1, $output);
 	} else {
 		# Reconnect attempt, was it successful?
 		if ( ! exists $output->{'ERROR'} ) {
-			return 1;
+			return (1, $output);
 		}
 	}
 
-	return;
+	return (0, $output);
 }
 
 # Disconnects from the DB
@@ -230,8 +238,7 @@ sub DB_DISCONNECT {
 	}
 
 	# All done!
-	output( $output );
-	return;
+	return $output;
 }
 
 # This subroutine does a DB QUOTE
@@ -246,9 +253,8 @@ sub DB_QUOTE {
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
 		# Automatically try to reconnect
-		if ( ! DB_CONNECT( $CONN, 'RECONNECT' ) ) {
-			output( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
-			return;
+		if ( ! ( DB_CONNECT( $CONN, 'RECONNECT' ) )[0] ) {
+			return Make_Error( 'GONE', 'Lost connection to the database server.' );
 		}
 	}
 
@@ -271,8 +277,7 @@ sub DB_QUOTE {
 	}
 
 	# All done!
-	output( $output );
-	return;
+	return $output;
 }
 
 # This subroutine runs a 'SELECT' style query on the db
@@ -288,9 +293,8 @@ sub DB_MULTIPLE {
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
 		# Automatically try to reconnect
-		if ( ! DB_CONNECT( $CONN, 'RECONNECT' ) ) {
-			output( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
-			return;
+		if ( ! ( DB_CONNECT( $CONN, 'RECONNECT' ) )[0] ) {
+			return( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
 		}
 	}
 
@@ -369,8 +373,7 @@ sub DB_MULTIPLE {
 	}
 
 	# Return the data structure
-	output( $output );
-	return;
+	return $output;
 }
 
 # This subroutine runs a 'SELECT ... LIMIT 1' style query on the db
@@ -386,9 +389,8 @@ sub DB_SINGLE {
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
 		# Automatically try to reconnect
-		if ( ! DB_CONNECT( $CONN, 'RECONNECT' ) ) {
-			output( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
-			return;
+		if ( ! ( DB_CONNECT( $CONN, 'RECONNECT' ) )[0] ) {
+			return Make_Error( 'GONE', 'Lost connection to the database server.' );
 		}
 	}
 
@@ -448,8 +450,7 @@ sub DB_SINGLE {
 	}
 
 	# Return the data structure
-	output( $output );
-	return;
+	return $output;
 }
 
 # This subroutine runs a 'DO' style query on the db
@@ -466,9 +467,8 @@ sub DB_DO {
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
 		# Automatically try to reconnect
-		if ( ! DB_CONNECT( $CONN, 'RECONNECT' ) ) {
-			output( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
-			return;
+		if ( ! ( DB_CONNECT( $CONN, 'RECONNECT' ) )[0] ) {
+			return Make_Error( 'GONE', 'Lost connection to the database server.' );
 		}
 	}
 
@@ -535,8 +535,7 @@ sub DB_DO {
 	}
 
 	# Return the data structure
-	output( $output );
-	return;
+	return $output;
 }
 
 # This subroutine runs a 'DO' style query on the db in a transaction
@@ -551,9 +550,8 @@ sub DB_ATOMIC {
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
 		# Automatically try to reconnect
-		if ( ! DB_CONNECT( $CONN, 'RECONNECT' ) ) {
-			output( Make_Error( 'GONE', 'Lost connection to the database server.' ) );
-			return;
+		if ( ! ( DB_CONNECT( $CONN, 'RECONNECT' ) )[0] ) {
+			return Make_Error( 'GONE', 'Lost connection to the database server.' );
 		}
 	}
 
@@ -632,8 +630,7 @@ sub DB_ATOMIC {
 	}
 
 	# Return the data structure
-	output( $output );
-	return;
+	return $output;
 }
 
 # This subroutine makes a generic error structure

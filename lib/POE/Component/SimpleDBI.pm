@@ -21,7 +21,7 @@ BEGIN {
 # Set things in motion!
 sub new {
 	# Get our arguments
-	my( $type, $ALIAS, $PREPARE_CACHED ) = @_;
+	my( $type, $ALIAS, $PREPARE_CACHED, $SYNCHRO_MODE ) = @_;
 
 	# Get the session alias
 	if ( ! defined $ALIAS ) {
@@ -108,6 +108,9 @@ sub new {
 
 			# Cache sql statements?
 			'PREPARE_CACHED'=>	$PREPARE_CACHED,
+
+			# Synchronous mode?
+			'SYNCHRO'	=>	$SYNCHRO_MODE,
 		},
 	) or die 'Unable to create a new session!';
 
@@ -673,10 +676,15 @@ sub DB_CONNECT {
 		push( @{ $_[HEAP]->{'QUEUE'} }, \%args );
 	}
 
-	# Do we have the wheel running?
-	if ( ! defined $_[HEAP]->{'WHEEL'} ) {
-		# Create the wheel
-		$_[KERNEL]->call( $_[SESSION], 'Setup_Wheel' );
+	# Asynchronous mode.
+	if ( ! defined $_[HEAP]->{'SYNCHRO'} ) {
+		# Do we have the wheel running?
+		if ( ! defined $_[HEAP]->{'WHEEL'} ) {
+			# Create the wheel
+			$_[KERNEL]->call( $_[SESSION], 'Setup_Wheel' );
+		}
+	} else {
+		require POE::Component::SimpleDBI::SubProcess;
 	}
 
 	# Check if the subprocess is not active
@@ -948,7 +956,14 @@ sub Check_Queue {
 			$_[HEAP]->{'ACTIVE'} = 1;
 
 			# Put it in the wheel
-			$_[HEAP]->{'WHEEL'}->put( \%queue );
+			if ( defined $_[HEAP]->{'SYNCHRO'} ) {
+				my $output = (
+					POE::Component::SimpleDBI::SubProcess::process_request(\%queue)
+				);
+				$_[KERNEL]->call($_[SESSION], 'Got_STDOUT', $output) if $output;
+			} else {
+				$_[HEAP]->{'WHEEL'}->put( \%queue );
+			}
 		} else {
 			if ( DEBUG ) {
 				warn 'Check_Queue was called but nothing in the queue!';
@@ -1446,6 +1461,15 @@ This sets the global PREPARE_CACHED setting. This is a boolean value.
 	POE::Component::SimpleDBI->new( 'ALIAS', 0 );
 
 The default is enabled.
+
+=head3 SYNCHRONOUS_MODE
+
+This disables the fork() that the subprocess does. Use this only if you are having issues with the backend
+and want to debug the database without dealing with multiprocess issues.
+
+	POE::Component::SimpleDBI->new( 'ALIAS', 1, 1 );
+
+The default is disabled.
 
 =head2 Commands
 
