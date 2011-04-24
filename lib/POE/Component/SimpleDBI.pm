@@ -1089,7 +1089,13 @@ sub Setup_Wheel {
 		# Set up the SubProcess we communicate with
 		$_[HEAP]->{'WHEEL'} = POE::Wheel::Run->new(
 			# What we will run in the separate process
-			'Program'	=>	"$^X -MPOE::Component::SimpleDBI::SubProcess -e 'POE::Component::SimpleDBI::SubProcess::main()'",
+			'Program'	=>	[
+							$^X,
+							( map { "-I$_" } @INC ),
+							'-MPOE::Component::SimpleDBI::SubProcess',
+							'-e',
+							'POE::Component::SimpleDBI::SubProcess::main()',
+						],
 
 			# Kill off existing FD's
 			'CloseOnCall'	=>	1,
