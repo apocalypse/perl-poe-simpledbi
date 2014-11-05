@@ -22,6 +22,7 @@ BEGIN {
 sub new {
 	# Get our arguments
 	my( $type, $ALIAS, $PREPARE_CACHED, $SYNCHRO_MODE ) = @_;
+	$type = $type; # shutup UnusedVars
 
 	# Get the session alias
 	if ( ! defined $ALIAS ) {
@@ -209,7 +210,7 @@ sub DB_HANDLE {
 		return;
 	} else {
 		if ( ref $args{'SESSION'} ) {
-			if ( UNIVERSAL::isa( $args{'SESSION'}, 'POE::Session') ) {
+			if ( $args{'SESSION'}->isa('POE::Session') ) {
 				# Convert it!
 				$args{'SESSION'} = $args{'SESSION'}->ID();
 			} else {
@@ -376,7 +377,7 @@ sub DB_ATOMIC {
 		return;
 	} else {
 		if ( ref $args{'SESSION'} ) {
-			if ( UNIVERSAL::isa( $args{'SESSION'}, 'POE::Session') ) {
+			if ( $args{'SESSION'}->isa('POE::Session') ) {
 				# Convert it!
 				$args{'SESSION'} = $args{'SESSION'}->ID();
 			} else {
@@ -585,7 +586,7 @@ sub DB_CONNECT {
 		return;
 	} else {
 		if ( ref $args{'SESSION'} ) {
-			if ( UNIVERSAL::isa( $args{'SESSION'}, 'POE::Session') ) {
+			if ( $args{'SESSION'}->isa('POE::Session') ) {
 				# Convert it!
 				$args{'SESSION'} = $args{'SESSION'}->ID();
 			} else {
@@ -732,7 +733,7 @@ sub DB_DISCONNECT {
 		return;
 	} else {
 		if ( ref $args{'SESSION'} ) {
-			if ( UNIVERSAL::isa( $args{'SESSION'}, 'POE::Session') ) {
+			if ( $args{'SESSION'}->isa('POE::Session') ) {
 				# Convert it!
 				$args{'SESSION'} = $args{'SESSION'}->ID();
 			} else {
@@ -834,7 +835,7 @@ sub Clear_Queue {
 	}
 
 	# Is the SubProcess active?
-	my $activequeue = undef;
+	my $activequeue;
 	if ( $_[HEAP]->{'ACTIVE'} ) {
 		$activequeue = shift( @{ $_[HEAP]->{'QUEUE'} } );
 	}
@@ -1189,12 +1190,7 @@ sub ChildClosed {
 
 # Handles child error
 sub ChildError {
-	# Emit warnings only if debug is on
-	if ( DEBUG ) {
-		# Copied from POE::Wheel::Run manpage
-		my ( $operation, $errnum, $errstr ) = @_[ ARG0 .. ARG2 ];
-		warn __PACKAGE__ . " got an $operation error $errnum: $errstr\n";
-	}
+	warn( __PACKAGE__ . "got ChildError: " . join( ' ', @_[ ARG0 .. ARG2 ] ) ) if DEBUG;
 
 	return;
 }
@@ -1223,7 +1219,7 @@ sub Got_STDOUT {
 	# allow debugging
 	if ( $data->{'ID'} eq 'DEBUG' ) {
 		if ( DEBUG ) {
-			require Data::Dumper;
+			require Data::Dumper; ## no critic (Bangs::ProhibitDebuggingModules)
 			warn Data::Dumper::Dumper( $data->{'RESULT'} );
 		}
 		return;
@@ -1348,6 +1344,8 @@ sub Got_STDERR {
 
 =for stopwords ARG DBI Kwalitee OID PostgreSQL SQL SimpleDBI's com diff github placeholders
 
+=for Pod::Coverage *EVERYTHING*
+
 =head1 SYNOPSIS
 
 	use POE;
@@ -1456,7 +1454,7 @@ This method will die on error or return success.
 NOTE: The act of starting/stopping SimpleDBI fires off _child events, read
 the POE documentation on what to do with them :)
 
-This constructor accepts only 2 arguments.
+This constructor accepts only 3 arguments.
 
 =head3 Alias
 
@@ -1564,26 +1562,23 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 =head3 C<CONNECT>
 
-	This tells SimpleDBI to connect to the database
+This tells SimpleDBI to connect to the database. NOTE: if we are already connected, it will be a
+success ( SimpleDBI will not disconnect then connect automatically ). Accepted arguments:
 
-	NOTE: if we are already connected, it will be a success ( SimpleDBI will not disconnect then connect automatically )
+	DSN		->	The DBI DSN string, consult the DBI docs on what this is
+	USERNAME	->	The username for the connection
+	PASSWORD	->	The password for the connection
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	NOW		->	Tells SimpleDBI to bypass the queue and connect NOW!
+	CLEAR		->	Tells SimpleDBI to clear the queue and connect NOW!
+	AUTO_COMMIT	->	The boolean value we will pass to DBI->connect ( defaults to true )
+	CACHEDKIDS	->	Controls the method to cache prepare_cached queries, an arrayref ( defaults to undef )
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 
-	Accepted arguments:
-		DSN		->	The DBI DSN string, consult the DBI docs on what this is
-		USERNAME	->	The username for the connection
-		PASSWORD	->	The password for the connection
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		NOW		->	Tells SimpleDBI to bypass the queue and connect NOW!
-		CLEAR		->	Tells SimpleDBI to clear the queue and connect NOW!
-		AUTO_COMMIT	->	The boolean value we will pass to DBI->connect ( defaults to true )
-		CACHEDKIDS	->	Controls the method to cache prepare_cached queries, an arrayref ( defaults to undef )
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
-
-	NOTE: if the DSN/USERNAME/PASSWORD/SESSION/EVENT does not exist, SimpleDBI assumes you wanted to use
-	the old connection and will use the cached values ( if you told it to DISCONNECT ).
-
-	Here's an example on how to trigger this event:
+NOTE: if the DSN/USERNAME/PASSWORD/SESSION/EVENT does not exist, SimpleDBI assumes you wanted to use
+the old connection and will use the cached values ( if you told it to DISCONNECT ). Here's an example on how to
+trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT',
 		'DSN'		=>	'DBI:mysql:database=foobaz;host=192.168.1.100;port=3306',
@@ -1593,11 +1588,10 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		'NOW'		=>	1,
 	);
 
-	The NOW/CLEAR arguments are special, they will tell SimpleDBI to bypass the request queue and connect NOW...
-		The CLEAR argument will also delete all the requests waiting in the queue, they will get an ERROR result
-		They both default to false, supply a boolean value to turn them on
+The NOW/CLEAR arguments are special, they will tell SimpleDBI to bypass the request queue and connect NOW...
+The CLEAR argument will also delete all the requests waiting in the queue, they will get an ERROR result.
+They both default to false, supply a boolean value to turn them on. The Event handler will get a hash in ARG0:
 
-	The Event handler will get a hash in ARG0:
 	{
 		'ERROR'		=>	exists only if an error occured
 		'GONE'		=>	exists only if the server was disconnected and the reconnect failed
@@ -1607,63 +1601,56 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		'SESSION'	=>	The session the query will respond to
 	}
 
-	Receiving this event without the ERROR key means SimpleDBI successfully connected and is waiting for queries
+	# NOTE: You can do nifty things like this. They all will be executed in the right order!
+	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', 'DSN' => 'DBI:mysql:...', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'DO', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'SINGLE', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'DISCONNECT' );
+	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', 'DSN' => 'DBI:oracle:...', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'MULTIPLE', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'shutdown' );
 
-	NOTE: You can do nifty things like:
-		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', 'DSN' => 'DBI:mysql:...', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'DO', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'SINGLE', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'DISCONNECT' );
-		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', 'DSN' => 'DBI:oracle:...', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'MULTIPLE', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'shutdown' );
+As of 1.11 SimpleDBI now detects whether the backend lost the connection to the database server. The backend will
+automatically reconnect if it happens, but if that fails, an error will be sent to the session/event specified here
+with an extra key: 'GONE'. In this state SimpleDBI is deadlocked, any new queries will not be processed until a
+CONNECT NOW event is issued! Keep in mind the SINGLE/etc queries WILL NOT receive an error if this happens, the error
+goes straight to the CONNECT handler to keep it simple!
 
-	They all will be executed in the right order!
+As of 1.29 SimpleDBI added better control of the prepare_cached cache. Some users reported that the subprocess' memory
+usage was leaking, and in extreme cases reached several gigs! Upon investigation, it was not SimpleDBI's fault but the
+way DBI works. What DBI does is cache the statement handle from $dbh->prepare_cached in the $dbh handle. The problem is
+that it stays around forever in the default implementation! Perusing the DBI docs revealed that it was possible to tie
+this cache to a custom cache module. So I've added the CACHEDKIDS argument, and setting it to an arrayref will enable the
+behavior. Look at L<http://search.cpan.org/dist/DBI/DBI.pm#prepare_cached> for more information. Here's an example:
 
-	As of 1.11 SimpleDBI now detects whether the backend lost the connection to the database server. The backend will
-	automatically reconnect if it happens, but if that fails, an error will be sent to the session/event specified here
-	with an extra key: 'GONE'. In this state SimpleDBI is deadlocked, any new queries will not be processed until a
-	CONNECT NOW event is issued! Keep in mind the SINGLE/etc queries WILL NOT receive an error if this happens, the error
-	goes straight to the CONNECT handler to keep it simple!
+	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ..., 'CACHEDKIDS' => [ 'Tie::Cache::LRU' ] );
 
-	As of 1.29 SimpleDBI added better control of the prepare_cached cache. Some users reported that the subprocess' memory
-	usage was leaking, and in extreme cases reached several gigs! Upon investigation, it was not SimpleDBI's fault but the
-	way DBI works. What DBI does is cache the statement handle from $dbh->prepare_cached in the $dbh handle. The problem is
-	that it stays around forever in the default implementation! Perusing the DBI docs revealed that it was possible to tie
-	this cache to a custom cache module. So I've added the CACHEDKIDS argument, and setting it to an arrayref will enable the
-	behavior. Look at L<http://search.cpan.org/dist/DBI/DBI.pm#prepare_cached> for more information. Here's an example:
-
-		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ..., 'CACHEDKIDS' => [ 'Tie::Cache::LRU' ] );
-
-	The first element in the array is the module to use when tying the cache. Any additional elements are passed to the module's
-	constructor. Please look at the docs for your favorite cache module! If users report success with this, in a future version
-	of SimpleDBI it might become the default behavior. Keep in mind that this will be redundant if PREPARE_CACHED == 0.
+The first element in the array is the module to use when tying the cache. Any additional elements are passed to the module's
+constructor. Please look at the docs for your favorite cache module! If users report success with this, in a future version
+of SimpleDBI it might become the default behavior. Keep in mind that this will be redundant if PREPARE_CACHED == 0.
 
 =head3 C<DISCONNECT>
 
-	This tells SimpleDBI to disconnect from the database
+This tells SimpleDBI to disconnect from the database. NOTE: In the case that a DISCONNECT is issued
+when we are not connected, it will still succeed! Accepted arguments:
 
-	NOTE: In the case that a DISCONNECT is issued when we are not connected, it will still succeed...
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	NOW		->	Tells SimpleDBI to bypass the queue and disconnect NOW!
+	CLEAR		->	Tells SimpleDBI to clear the queue and disconnect NOW!
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 
-	Accepted arguments:
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		NOW		->	Tells SimpleDBI to bypass the queue and disconnect NOW!
-		CLEAR		->	Tells SimpleDBI to clear the queue and disconnect NOW!
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
-
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'DISCONNECT',
 		'EVENT'		=>	'disconn_handler',
 		'NOW'		=>	1,
 	);
 
-	The NOW/CLEAR arguments are special, they will tell SimpleDBI to bypass the request queue and connect NOW...
-		The CLEAR argument will also delete all the requests waiting in the queue, they will get an ERROR result
-		They both default to false, supply a boolean value to turn them on
+The NOW/CLEAR arguments are special, they will tell SimpleDBI to bypass the request queue and connect NOW.
+The CLEAR argument will also delete all the requests waiting in the queue, they will get an ERROR result.
+They both default to false, supply a boolean value to turn them on. The Event handler will get a hash in ARG0:
 
-	The Event handler will get a hash in ARG0:
 	{
 		'ERROR'		=>	exists only if an error occured
 		'ACTION'	=>	'DISCONNECT'
@@ -1672,40 +1659,37 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		'SESSION'	=>	The session the query will respond to
 	}
 
-	Receiving this event without the ERROR key means SimpleDBI successfully disconnected
-
-	BEWARE: There is the possibility of a deadlock:
-		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'MULTIPLE', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'DISCONNECT' );
-		$_[KERNEL]->post( 'SimpleDBI', 'DO', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'SINGLE', ... );
-		$_[KERNEL]->post( 'SimpleDBI', 'CONNECT' );
-
-	In this case, the DO/SINGLE queries will NEVER run until you issue a CONNECT with NOW enabled
+	# BEWARE: There is the possibility of a deadlock! In this case, the DO/SINGLE queries will
+	# NEVER run until you issue a CONNECT with NOW enabled at the end!
+	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'MULTIPLE', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'DISCONNECT' );
+	$_[KERNEL]->post( 'SimpleDBI', 'DO', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'SINGLE', ... );
+	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT' );
 
 =head3 C<QUOTE>
 
-	This simply sends off a string to be quoted, and gets it back.
+This simply sends off a string to be quoted, and gets it back. Accepted arguments:
 
-	Accepted arguments:
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		SQL		->	The string to be quoted
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	SQL		->	The string to be quoted
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
 
-	Internally, it does this:
+Internally, it does something like this:
 
 	return $dbh->quote( $SQL );
 
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'QUOTE',
 		SQL => 'foo$*@%%sdkf"""',
 		EVENT => 'quote_handler',
 	);
 
-	The Event handler will get a hash in ARG0:
+The Event handler will get a hash in ARG0:
+
 	{
 		'ERROR'		=>	exists only if an error occured
 		'ACTION'	=>	'QUOTE'
@@ -1720,26 +1704,24 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 =head3 C<DO>
 
-	This query is specialized for those queries where you UPDATE/DELETE/INSERT/etc.
+This query is specialized for those queries where you UPDATE/DELETE/INSERT/etc. THIS IS NOT FOR SELECT QUERIES!
+Accepted arguments:
 
-	THIS IS NOT FOR SELECT QUERIES!
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	SQL		->	The string to be quoted
+	PLACEHOLDERS	->	Any placeholders ( if needed )
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+	PREPARE_CACHED	->	Boolean value ( if needed )
+	INSERT_ID	->	Boolean value ( if needed )
 
-	Accepted arguments:
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		SQL		->	The string to be quoted
-		PLACEHOLDERS	->	Any placeholders ( if needed )
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
-		PREPARE_CACHED	->	Boolean value ( if needed )
-		INSERT_ID	->	Boolean value ( if needed )
-
-	Internally, it does this:
+Internally, it does something like this:
 
 	$sth = $dbh->prepare_cached( $SQL );
 	$rows_affected = $sth->execute( $PLACEHOLDERS );
 	return $rows_affected;
 
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'DO',
 		SQL => 'DELETE FROM FooTable WHERE ID = ?',
@@ -1747,7 +1729,8 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		EVENT => 'deleted_handler',
 	);
 
-	The Event handler will get a hash in ARG0:
+The Event handler will get a hash in ARG0:
+
 	{
 		'ERROR'		=>	exists only if an error occured
 		'ACTION'	=>	'DO'
@@ -1763,24 +1746,23 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 =head3 C<SINGLE>
 
-	This query is specialized for those queries where you will get exactly 1 result back.
+This query is specialized for those queries where you will get exactly 1 result back. 	Accepted arguments:
 
-	Accepted arguments:
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		SQL		->	The string to be quoted
-		PLACEHOLDERS	->	Any placeholders ( if needed )
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
-		PREPARE_CACHED	->	Boolean value ( if needed )
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	SQL		->	The string to be quoted
+	PLACEHOLDERS	->	Any placeholders ( if needed )
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+	PREPARE_CACHED	->	Boolean value ( if needed )
 
-	Internally, it does this:
+Internally, it does something like this:
 
 	$sth = $dbh->prepare_cached( $SQL );
 	$sth->execute( $PLACEHOLDERS );
 	$result = $sth->fetchrow_hashref;
 	return $result;
 
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'SINGLE',
 		SQL => 'Select * from FooTable',
@@ -1788,7 +1770,8 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		SESSION => 'MySession',
 	);
 
-	The Event handler will get a hash in ARG0:
+The Event handler will get a hash in ARG0:
+
 	{
 		'ERROR'		=>	exists only if an error occured
 		'ACTION'	=>	'SINGLE'
@@ -1803,19 +1786,20 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 =head3 C<MULTIPLE>
 
-	This query is specialized for those queries where you will get more than 1 result back.
+This query is specialized for those queries where you will get more than 1 result back.
 
-	WARNING! The column names are all lowercased automatically! WARNING!
+WARNING! The column names are all lowercased automatically! WARNING!
 
-	Accepted arguments:
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		SQL		->	The string to be quoted
-		PLACEHOLDERS	->	Any placeholders ( if needed )
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
-		PREPARE_CACHED	->	Boolean value ( if needed )
+Accepted arguments:
 
-	Internally, it does this:
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	SQL		->	The string to be quoted
+	PLACEHOLDERS	->	Any placeholders ( if needed )
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+	PREPARE_CACHED	->	Boolean value ( if needed )
+
+Internally, it does something like this:
 
 	$sth = $dbh->prepare_cached( $SQL );
 	$sth->execute( $PLACEHOLDERS );
@@ -1825,7 +1809,7 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 	}
 	return \@results;
 
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'MULTIPLE',
 		SQL => 'SELECT foo, baz FROM FooTable2 WHERE id = ?',
@@ -1834,7 +1818,8 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		PREPARE_CACHED => 0,
 	);
 
-	The Event handler will get a hash in ARG0:
+The Event handler will get a hash in ARG0:
+
 	{
 		'ERROR'		=>	exists only if an error occured
 		'ACTION'	=>	'MULTIPLE'
@@ -1849,26 +1834,25 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 =head3 C<ATOMIC>
 
-	This query is specialized for those queries that you need to execute in a transaction. You supply an array of SQL queries,
-	and SimpleDBI will execute them all in a transaction block. No need to worry about AutoCommit, BEGIN, and END TRANSACTION!
+This query is specialized for those queries that you need to execute in a transaction. You supply an array of SQL queries,
+and SimpleDBI will execute them all in a transaction block. No need to worry about AutoCommit, BEGIN, and END TRANSACTION!
 
-	You are supposed to pass an array of queries that normally would be executed in a DO-style query. Again, you cannot execute
-	SELECT queries in this type of command! Currently there is no control over prepare_cached for individual queries. It may be
-	added in a future release.
+You are supposed to pass an array of queries that normally would be executed in a DO-style query. Again, you cannot execute
+SELECT queries in this type of command! Currently there is no control over prepare_cached for individual queries. It may be
+added in a future release.
 
-	WARNING: It tripped me up on my testing when I realized this worked on Postgres but not MySQL. I forgot that I was testing
-	against MyISAM tables, which doesn't support transactions! ( it works nicely on InnoDB tables hah ) So, if this doesn't
-	"behave" properly for you please check your database tables!
+WARNING: It tripped me up on my testing when I realized this worked on Postgres but not MySQL. I forgot that I was testing
+against MyISAM tables, which doesn't support transactions! ( it works nicely on InnoDB tables hah ) So, if this doesn't
+"behave" properly for you please check your database tables! Accepted arguments:
 
-	Accepted arguments:
-		SESSION		->	The session to send the results
-		EVENT		->	The event to send the results
-		SQL		->	The array of SQL queries
-		PLACEHOLDERS	->	The array of placeholders ( if needed ) [ this is an AoA - array of arrays! ]
-		BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
-		PREPARE_CACHED	->	Boolean value ( if needed ) [ for all of the queries! ]
+	SESSION		->	The session to send the results
+	EVENT		->	The event to send the results
+	SQL		->	The array of SQL queries
+	PLACEHOLDERS	->	The array of placeholders ( if needed ) [ this is an AoA - array of arrays! ]
+	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+	PREPARE_CACHED	->	Boolean value ( if needed ) [ for all of the queries! ]
 
-	Internally, it does this:
+Internally, it does something like this:
 
 	eval {
 		$dbh->begin_work;
@@ -1898,7 +1882,8 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		return SUCCESS;
 	}
 
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
+
 	$_[KERNEL]->post( 'SimpleDBI', 'ATOMIC',
 		SQL => [
 			'DELETE FROM FooTable WHERE ID = ?',
@@ -1910,7 +1895,8 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 		],
 	);
 
-	The Event handler will get a hash in ARG0:
+The Event handler will get a hash in ARG0:
+
 	{
 		'ERROR'		=>	exists only if an error occured ( ROLLBACK_FAILURE or COMMIT_FAILURE with explanation )
 		'ACTION'	=>	'ATOMIC'
@@ -1925,47 +1911,36 @@ This is a simple boolean value, and if this argument does not exist, SimpleDBI w
 
 =head3 C<Delete_Query>
 
-	Call this event if you want to delete a query via the ID.
+Call this event if you want to delete a query via the ID. Returns:
 
-	Returns:
-		undef if it wasn't able to find the ID
-		0 if the query is currently being processed
-		1 if the query was successfully deleted
+	undef if it wasn't able to find the ID
+	0 if the query is currently being processed
+	1 if the query was successfully deleted
 
-	Here's an example on how to trigger this event:
+Here's an example on how to trigger this event:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'Delete_Query', $queryID );
 
-	IF you really want to know the status, execute a call on the event and check the returned value.
+IF you really want to know the status, execute a call on the event and check the returned value.
 
 =head3 C<Clear_Queue>
 
-	This event will clear the entire queue except the running query, if there is one.
+This event will clear the entire queue except the running query, if there is one.
 
-	You can also pass in one argument -> the error string to be used instead of the default, 'Cleared the queue'
+You can also pass in one argument -> the error string to be used instead of the default, 'Cleared the queue'
 
-	All the queries in the queue will return ERROR to their respective sessions/events
+All the queries in the queue will return ERROR to their respective sessions/events
 
 =head3 C<shutdown>
 
-	$_[KERNEL]->post( 'SimpleDBI', 'shutdown' );
-
-	This will signal SimpleDBI to start the shutdown procedure.
-
-	NOTE: This will let all outstanding queries run!
-	SimpleDBI will kill it's session when all the queries have been processed.
-
-	you can also specify an argument:
+This will signal SimpleDBI to start the shutdown procedure. Without arguments, SimpleDBI will wait for
+outstanding queries to complete before killing it's session. You can also specify an argument to ignore
+those queries and immediately halt:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'shutdown', 'NOW' );
 
-	This will signal SimpleDBI to shutdown.
-
-	NOTE: This will NOT let the outstanding queries finish!
-	Any queries running will be lost!
-
-	Due to the way POE's queue works, this shutdown event will take some time to propagate POE's queue.
-	If you REALLY want to shut down immediately, do this:
+Due to the way POE's queue works, this shutdown event will take some time to propagate POE's queue.
+If you REALLY want to shut down immediately, do this:
 
 	$_[KERNEL]->call( 'SimpleDBI', 'shutdown', 'NOW' );
 

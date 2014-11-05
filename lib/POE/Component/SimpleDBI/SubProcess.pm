@@ -15,10 +15,10 @@ use DBI 1.30;
 my $filter = POE::Filter::Reference->new();
 
 # Our DBI handle
-my $DB = undef;
+my $DB;
 
 # Save the connect struct for future use
-my $CONN = undef;
+my $CONN;
 
 # Sysread error hits
 my $sysreaderr = 0;
@@ -79,8 +79,7 @@ sub process_request {
 	# Now, we do the actual work depending on what kind of query it was
 	if ( $input->{'ACTION'} eq 'CONNECT' ) {
 		# Connect!
-		my ($success, $output) = DB_CONNECT($input, 0);
-		return $output;
+		return (DB_CONNECT($input, 0))[1];
 	} elsif ( $input->{'ACTION'} eq 'DISCONNECT' ) {
 		# Disconnect!
 		return DB_DISCONNECT( $input );
@@ -117,11 +116,11 @@ sub DB_CONNECT {
 	# Get the input structure
 	my $data = shift;
 
-	# Our output structure
-	my $output = undef;
-
 	# Are we reconnecting?
 	my $reconn = shift;
+
+	# Our output structure
+	my $output;
 
 	# Are we already connected?
 	if ( defined $DB and $DB->ping() ) {
@@ -210,7 +209,7 @@ sub DB_DISCONNECT {
 	my $data = shift;
 
 	# Our output structure
-	my $output = undef;
+	my $output;
 
 	# Are we already disconnected?
 	if ( ! defined $DB ) {
@@ -247,8 +246,7 @@ sub DB_QUOTE {
 	my $data = shift;
 
 	# The result
-	my $quoted = undef;
-	my $output = undef;
+	my( $quoted, $output );
 
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
@@ -286,8 +284,7 @@ sub DB_MULTIPLE {
 	my $data = shift;
 
 	# Variables we use
-	my $output = undef;
-	my $sth = undef;
+	my( $output, $sth );
 	my $result = [];
 
 	# Check if we are connected
@@ -385,9 +382,7 @@ sub DB_SINGLE {
 	my $data = shift;
 
 	# Variables we use
-	my $output = undef;
-	my $sth = undef;
-	my $result = undef;
+	my( $output, $sth, $result );
 
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
@@ -464,10 +459,7 @@ sub DB_DO {
 	my $data = shift;
 
 	# Variables we use
-	my $output = undef;
-	my $sth = undef;
-	my $rows_affected = undef;
-	my $last_id = undef;
+	my( $output, $sth, $rows_affected, $last_id );
 
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
@@ -552,8 +544,7 @@ sub DB_ATOMIC {
 	my $data = shift;
 
 	# Variables we use
-	my $output = undef;
-	my $sth = undef;
+	my( $output, $sth );
 
 	# Check if we are connected
 	if ( ! defined $DB or ! $DB->ping() ) {
@@ -690,6 +681,8 @@ sub output {
 1;
 
 =pod
+
+=for Pod::Coverage *EVERYTHING*
 
 =for stopwords DBI
 
