@@ -1089,13 +1089,17 @@ sub Setup_Wheel {
 		# Set up the SubProcess we communicate with
 		$_[HEAP]->{'WHEEL'} = POE::Wheel::Run->new(
 			# What we will run in the separate process
-			'Program'	=>	[
-							$^X,
-							( map { "-I$_" } @INC ),
-							'-MPOE::Component::SimpleDBI::SubProcess',
-							'-e',
-							'POE::Component::SimpleDBI::SubProcess::main()',
-						],
+			'Program'       =>      "$^X -MPOE::Component::SimpleDBI::SubProcess -e 'POE::Component::SimpleDBI::SubProcess::main()'",
+
+			# TODO add this and more modules for RT#48401
+#			'Program'	=>	[
+#							$^X,
+#							( map { "-I$_" } @INC ),
+#							( map { "-M$_" } @extra_modules ),
+#							'-MPOE::Component::SimpleDBI::SubProcess',
+#							'-e',
+#							'POE::Component::SimpleDBI::SubProcess::main()',
+#						],
 
 			# Kill off existing FD's
 			'CloseOnCall'	=>	1,
@@ -1983,6 +1987,17 @@ You can override this behavior by doing this:
 
 	sub POE::Component::SimpleDBI::MAX_RETRIES () { 10 }
 	use POE::Component::SimpleDBI;
+
+=head3 DBI attributes
+
+Since SimpleDBI doesn't expose the DBI handle it might be an issue if you need to set custom attributes.  Fear not
+for DBI already has a standard mechanism for this: "connection attribute values" in L<DBI/#connect>. Here is an
+example to enable utf8 for a Postgres database:
+
+	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT',
+		'DSN'		=>	'DBI:Pg(pg_enable_utf8=>1):host=foo;dbname=bar',
+		...
+	);
 
 =head1 SEE ALSO
 DBI

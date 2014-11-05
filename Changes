@@ -2,6 +2,9 @@ Revision history for Perl extension POE::Component::SimpleDBI.
 
 {{$NEXT}}
 
+	Add note about UTF8 connection attributes - thanks RT#43063
+	Cleanup some code in preparation for future changes - thanks RT#48401
+
 1.30
 	Released: 2011-02-10 02:58:17 UTC
 

@@ -320,7 +320,8 @@ sub DB_MULTIPLE {
 					$sth->execute();
 				}
 			} catch Error with {
-				die $sth->errstr;
+				die $sth->errstr if $sth->errstr;
+				die "NON DBI ERROR : $@";
 			};
 		}
 
@@ -331,7 +332,8 @@ sub DB_MULTIPLE {
 		try {
 			$sth->bind_columns( \( @$newdata{ @{ $sth->{'NAME_lc'} } } ) );
 		} catch Error with {
-			die $sth->errstr;
+			die $sth->errstr if $sth->errstr;
+			die "NON DBI ERROR : $@";
 		};
 
 		# Actually do the query!
@@ -341,7 +343,8 @@ sub DB_MULTIPLE {
 				push( @{ $result }, { %{ $newdata } } );
 			}
 		} catch Error with {
-			die $sth->errstr;
+			die $sth->errstr if $sth->errstr;
+			die "NON DBI ERROR : $@";
 		};
 
 		# Check for any errors that might have terminated the loop early
@@ -416,7 +419,8 @@ sub DB_SINGLE {
 					$sth->execute();
 				}
 			} catch Error with {
-				die $sth->errstr;
+				die $sth->errstr if $sth->errstr;
+				die "NON DBI ERROR : $@";
 			};
 		}
 
@@ -424,7 +428,8 @@ sub DB_SINGLE {
 		try {
 			$result = $sth->fetchrow_hashref();
 		} catch Error with {
-			die $sth->errstr;
+			die $sth->errstr if $sth->errstr;
+			die "NON DBI ERROR : $@";
 		};
 	} catch Error with {
 		# Get the error
@@ -504,7 +509,10 @@ sub DB_DO {
 					};
 				}
 			} catch Error with {
-				die $sth->errstr;
+				# If something other than DBI fails, errstr won't be set.
+				# You can get this if, for example, we need a module that hasn't been loaded.
+				die $sth->errstr if $sth->errstr;
+				die "NON DBI ERROR : $@";
 			};
 		}
 	} catch Error with {
