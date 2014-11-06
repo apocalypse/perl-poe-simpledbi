@@ -1621,7 +1621,7 @@ usage was leaking, and in extreme cases reached several gigs! Upon investigation
 way DBI works. What DBI does is cache the statement handle from $dbh->prepare_cached in the $dbh handle. The problem is
 that it stays around forever in the default implementation! Perusing the DBI docs revealed that it was possible to tie
 this cache to a custom cache module. So I've added the CACHEDKIDS argument, and setting it to an arrayref will enable the
-behavior. Look at L<http://search.cpan.org/dist/DBI/DBI.pm#prepare_cached> for more information. Here's an example:
+behavior. Look at L<DBI/#prepare_cached> for more information. Here's an example:
 
 	$_[KERNEL]->post( 'SimpleDBI', 'CONNECT', ..., 'CACHEDKIDS' => [ 'Tie::Cache::LRU' ] );
 
