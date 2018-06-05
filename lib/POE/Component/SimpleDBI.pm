@@ -540,7 +540,7 @@ sub DB_CONNECT {
 
 	# Check for unknown args
 	foreach my $key ( keys %args ) {
-		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT|BAGGAGE|CACHEDKIDS)$/ ) {
+		if ( $key !~ /^(?:SESSION|EVENT|DSN|USERNAME|PASSWORD|NOW|CLEAR|AUTO_COMMIT|BAGGAGE|CACHEDKIDS|LONG_READ_LEN)$/ ) {
 			if ( DEBUG ) {
 				warn "Unknown argument to CONNECT -> $key";
 			}
@@ -549,7 +549,7 @@ sub DB_CONNECT {
 	}
 
 	# Add the cached copy if applicable
-	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT CACHEDKIDS ) ) {
+	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT CACHEDKIDS LONG_READ_LEN ) ) {
 		if ( ! exists $args{ $key } and exists $_[HEAP]->{ 'DB_' . $key } ) {
 			$args{ $key } = $_[HEAP]->{ 'DB_' . $key };
 		}
@@ -575,6 +575,11 @@ sub DB_CONNECT {
 	# set default CACHEDKIDS = undef
 	if ( ! exists $args{'CACHEDKIDS'} ) {
 		$args{'CACHEDKIDS'} = undef;
+	}
+	
+	# set default LONG_READ_LEN = undef
+	if ( ! exists $args{'LONG_READ_LEN'} ) {
+		$args{'LONG_READ_LEN'} = undef;
 	}
 
 	# Check for Session
@@ -695,7 +700,7 @@ sub DB_CONNECT {
 	}
 
 	# Save the connection info
-	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT CACHEDKIDS ) ) {
+	foreach my $key ( qw( DSN USERNAME PASSWORD SESSION EVENT AUTO_COMMIT CACHEDKIDS LONG_READ_LEN ) ) {
 		$_[HEAP]->{ 'DB_' . $key } = $args{ $key };
 	}
 
@@ -797,7 +802,7 @@ sub DB_DISCONNECT {
 			my $oldquery = shift( @{ $_[HEAP]->{'QUEUE'} } );
 
 			# Add it to the top!
-			unshift( @{ $_[HEAP]->{'QUEUE'} }, \%args );
+			unshift( @{ $_[HEAP]->{'QUEUE'} }, \%args );F
 
 			# Put the old one back on top if it was there
 			if ( defined $oldquery ) {
@@ -865,6 +870,10 @@ sub Clear_Queue {
 			if ( defined $queue->{'CACHEDKIDS'} ) {
 				$ret->{'CACHEDKIDS'} = $queue->{'CACHEDKIDS'};
 			}
+			if ( defined $queue->{'LONG_READ_LEN'} ) {
+				$ret->{'LONG_READ_LEN'} = $queue->{'LONG_READ_LEN'};
+			}
+
 		} elsif ( $queue->{'ACTION'} ne 'DISCONNECT' ) {
 			$ret->{'SQL'} = $queue->{'SQL'};
 
@@ -939,6 +948,11 @@ sub Check_Queue {
 				if ( defined $_[HEAP]->{'QUEUE'}->[0]->{'CACHEDKIDS'} ) {
 					$queue{'CACHEDKIDS'} = $_[HEAP]->{'QUEUE'}->[0]->{'CACHEDKIDS'};
 				}
+
+				if ( defined $_[HEAP]->{'QUEUE'}->[0]->{'LONG_READ_LEN'} ) {
+					$queue{'LONG_READ_LEN'} = $_[HEAP]->{'QUEUE'}->[0]->{'LONG_READ_LEN'};
+				}				
+				
 			} elsif ( $queue{'ACTION'} ne 'DISCONNECT' ) {
 				$queue{'SQL'} = $_[HEAP]->{'QUEUE'}->[0]->{'SQL'};
 
@@ -1244,6 +1258,7 @@ sub Got_STDOUT {
 			'PASSWORD'	=>	$_[HEAP]->{'DB_PASSWORD'},
 			'AUTO_COMMIT'	=>	$_[HEAP]->{'DB_AUTO_COMMIT'},
 			'CACHEDKIDS'	=>	$_[HEAP]->{'DB_CACHEDKIDS'},
+			'LONG_READ_LEN'	=>	$_[HEAP]->{'DB_LONG_READ_LEN'},
 		};
 
 		# Okay, we have to inform the session it failed and couldn't reconnect
@@ -1299,6 +1314,7 @@ sub Got_STDOUT {
 		$ret->{'PASSWORD'} = $query->{'PASSWORD'};
 		$ret->{'AUTO_COMMIT'} = $query->{'AUTO_COMMIT'};
 		$ret->{'CACHEDKIDS'} = $query->{'CACHEDKIDS'} if defined $query->{'CACHEDKIDS'};
+		$ret->{'LONG_READ_LEN'} = $query->{'LONG_READ_LEN'} if defined $query->{'LONG_READ_LEN'};
 	} elsif ( $query->{'ACTION'} ne 'DISCONNECT' ) {
 		$ret->{'SQL'} = $query->{'SQL'};
 
@@ -1575,6 +1591,7 @@ success ( SimpleDBI will not disconnect then connect automatically ). Accepted a
 	AUTO_COMMIT	->	The boolean value we will pass to DBI->connect ( defaults to true )
 	CACHEDKIDS	->	Controls the method to cache prepare_cached queries, an arrayref ( defaults to undef )
 	BAGGAGE		->	Any extra data to keep associated with this query ( SimpleDBI will not touch it )
+	LONG_READ_LEN	->	Maximum posible LOB size of response.
 
 NOTE: if the DSN/USERNAME/PASSWORD/SESSION/EVENT does not exist, SimpleDBI assumes you wanted to use
 the old connection and will use the cached values ( if you told it to DISCONNECT ). Here's an example on how to
