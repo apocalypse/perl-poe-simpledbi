@@ -155,6 +155,9 @@ sub DB_CONNECT {
 
 					# AutoCommit our stuff?
 					'AutoCommit'	=>	$data->{'AUTO_COMMIT'},
+					
+					# Maximum LOB lenght (Oracle)
+					'LongReadLen'	=>	$data->{'LONG_READ_LEN'},
 				}
 			);
 
